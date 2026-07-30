@@ -1,0 +1,25 @@
+package server
+
+import (
+	"net/http"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	user "github.com/yourusername/goBackendSkeleton/internal/User"
+	"github.com/yourusername/goBackendSkeleton/internal/server/handlers"
+)
+
+// newRouter wires up routes to their handlers. Add new route groups here
+// as the API grows — e.g. mux.Handle("/api/v1/users/", usersHandler).
+func newRouter(pool *pgxpool.Pool) *http.ServeMux {
+	mux := http.NewServeMux()
+	db := pool
+	health := handlers.NewHealthHandler(pool)
+	mux.HandleFunc("GET /healthz", health.Live)
+	mux.HandleFunc("GET /readyz", health.Ready)
+	mux.HandleFunc("/addUser", func(w http.ResponseWriter, r *http.Request) { user.AddUser(db, w, r) })
+	mux.HandleFunc("/getUserById", func(w http.ResponseWriter, r *http.Request) { user.GetUserById(db, w, r) })
+	mux.HandleFunc("/getBMI", func(w http.ResponseWriter, r *http.Request) { user.GetBMI_BMR(db, w, r) })
+
+	return mux
+}
