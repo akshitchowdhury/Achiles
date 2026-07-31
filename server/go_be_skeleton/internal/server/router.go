@@ -5,6 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	ai "github.com/yourusername/goBackendSkeleton/internal/AI"
 	user "github.com/yourusername/goBackendSkeleton/internal/User"
 	"github.com/yourusername/goBackendSkeleton/internal/server/handlers"
 )
@@ -20,6 +21,7 @@ func newRouter(pool *pgxpool.Pool) *http.ServeMux {
 	mux.HandleFunc("/addUser", func(w http.ResponseWriter, r *http.Request) { user.AddUser(db, w, r) })
 	mux.HandleFunc("/getUserById", func(w http.ResponseWriter, r *http.Request) { user.GetUserById(db, w, r) })
 	mux.HandleFunc("/getBMI", func(w http.ResponseWriter, r *http.Request) { user.GetBMI_BMR(db, w, r) })
+	mux.HandleFunc("/askGroq", func(w http.ResponseWriter, r *http.Request) { ai.CallGroq(w, r) })
 
 	return mux
 }
