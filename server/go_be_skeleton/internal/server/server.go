@@ -21,7 +21,7 @@ type Server struct {
 // New builds a Server ready to Start, wiring the router through the
 // standard middleware chain: recover -> logging -> CORS -> routes.
 func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) *Server {
-	mux := newRouter(pool)
+	mux := newRouter(pool, cfg)
 
 	handler := middleware.Chain(mux,
 		middleware.Recover(logger),

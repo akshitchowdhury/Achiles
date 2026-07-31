@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/yourusername/goBackendSkeleton/internal/config"
 )
 
 type Core struct {
@@ -30,7 +32,7 @@ type Message struct {
 //   }]
 // }
 
-func CallGroq(w http.ResponseWriter, r *http.Request) {
+func CallGroq(w http.ResponseWriter, r *http.Request, c config.AIConfig) {
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "wrong api call", http.StatusBadRequest)
@@ -57,7 +59,7 @@ func CallGroq(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer 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")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.API_KEY))
 	resp, _ := client.Do(req)
 	defer resp.Body.Close()
 

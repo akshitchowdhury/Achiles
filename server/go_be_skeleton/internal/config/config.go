@@ -18,6 +18,7 @@ type Config struct {
 	HTTP HTTPConfig
 	DB   DBConfig
 	CORS CORSConfig
+	AI   AIConfig
 }
 
 // HTTPConfig controls the HTTP server.
@@ -61,6 +62,10 @@ type CORSConfig struct {
 	MaxAge           int // seconds
 }
 
+type AIConfig struct {
+	API_KEY string
+}
+
 // Load reads a .env file if present (ignored silently if missing — real
 // deployments provide env vars directly) and builds a Config from the
 // environment, falling back to sensible defaults.
@@ -96,6 +101,9 @@ func Load() (*Config, error) {
 			AllowCredentials: getEnvBool("CORS_ALLOW_CREDENTIALS", false),
 			MaxAge:           getEnvInt("CORS_MAX_AGE", 300),
 		},
+
+		AI: AIConfig{
+			API_KEY: getEnv("GROQ_KEY", "")},
 	}
 
 	if err := cfg.validate(); err != nil {

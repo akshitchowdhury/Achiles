@@ -27,6 +27,7 @@ func main() {
 
 func run(logger *slog.Logger) error {
 	cfg, err := config.Load()
+
 	if err != nil {
 		return err
 	}
