@@ -31,6 +31,8 @@ func Get_User_verdict(bmi int) string {
 		return "Healthy"
 	} else if bmi > 25 && bmi < 30 {
 		return "Overweight"
+	} else if bmi >= 30 {
+		return "Obese"
 	}
 
 	return "Normal"
