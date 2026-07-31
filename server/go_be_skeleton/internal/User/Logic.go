@@ -35,3 +35,9 @@ func Get_User_verdict(bmi int) string {
 
 	return "Normal"
 }
+
+func calculateWaterIntake(weight float64) int {
+
+	waterIntake := int((weight * 35) / 1000)
+	return waterIntake
+}

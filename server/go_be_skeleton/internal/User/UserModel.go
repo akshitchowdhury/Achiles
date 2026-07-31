@@ -11,9 +11,10 @@ type User struct {
 }
 
 type Specs struct {
-	U_Bmi   BMI
-	U_Bmr   BMR
-	Verdict string `json:"verdict,omitempty"`
+	U_Bmi          BMI
+	U_Bmr          BMR
+	U_water_intake float64 `json:"water_intake,omitempty"`
+	Verdict        string  `json:"verdict,omitempty"`
 }
 
 type BMI struct {

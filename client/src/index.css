@@ -1,1 +1,143 @@
 @import "tailwindcss";
+
+/* Achiles design tokens.
+   The app deliberately commits to a single dark look — this is a training
+   surface, not a document reader. Chart series colors below were validated
+   for the dark surface (lightness band, chroma floor, CVD separation,
+   normal-vision floor, contrast); don't hand-tweak them in isolation. */
+@theme {
+  --font-sans: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Surfaces */
+  --color-plane: #0a0b0d;
+  --color-surface: #14161a;
+  --color-raised: #1c1f25;
+  --color-hairline: rgba(255, 255, 255, 0.08);
+  --color-hairline-strong: rgba(255, 255, 255, 0.14);
+
+  /* Ink — all clear WCAG AA on every surface above */
+  --color-ink: #f5f7f2;
+  --color-ink-dim: #a8aeb8;
+  --color-ink-muted: #8a9099;
+
+  /* Brand accent. UI only (buttons, active nav, focus) — never a chart series:
+     it sits outside the chart lightness band by design. */
+  --color-volt: #c8f31d;
+  --color-volt-hi: #d6fa45;
+  --color-volt-lo: #9bbf12;
+
+  /* Categorical chart series — fixed order, never cycled.
+     Worst all-pairs CVD ΔE 11.0, normal-vision ΔE 25.4. */
+  --color-series-1: #7a9e19;
+  --color-series-2: #3b82d9;
+  --color-series-3: #d4459b;
+
+  /* Ordinal lime ramp (magnitude, low → high). Monotone L, single hue. */
+  --color-ramp-1: #4a5f14;
+  --color-ramp-2: #5f7a19;
+  --color-ramp-3: #7a9e19;
+  --color-ramp-4: #9cc426;
+  --color-ramp-5: #c0ec33;
+
+  /* Status — used one at a time, always with an icon + label, never alone. */
+  --color-good: #0ca30c;
+  --color-warning: #fab219;
+  --color-serious: #ec835a;
+  --color-critical: #d03b3b;
+
+  /* Chart chrome */
+  --color-grid: #24272d;
+  --color-axis: #333740;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-plane text-ink font-sans antialiased;
+  }
+
+  /* Keyboard focus stays visible everywhere; mouse clicks stay quiet. */
+  :focus-visible {
+    @apply outline-volt outline-2 outline-offset-2;
+  }
+
+  ::selection {
+    background: var(--color-volt);
+    color: var(--color-plane);
+  }
+}
+
+@layer components {
+  /* Renders the coach's markdown. Scoped rather than global so model output
+     can never restyle the rest of the app. */
+  .prose-plan {
+    @apply text-ink-dim text-sm leading-relaxed;
+  }
+  .prose-plan > * + * {
+    @apply mt-3;
+  }
+  .prose-plan h1,
+  .prose-plan h2,
+  .prose-plan h3,
+  .prose-plan h4 {
+    @apply text-ink mt-6 text-base font-semibold tracking-tight first:mt-0;
+  }
+  .prose-plan h1 {
+    @apply text-lg;
+  }
+  .prose-plan strong {
+    @apply text-ink font-semibold;
+  }
+  .prose-plan a {
+    @apply text-volt underline underline-offset-2;
+  }
+  .prose-plan ul {
+    @apply list-disc space-y-1.5 pl-5;
+  }
+  .prose-plan ol {
+    @apply list-decimal space-y-1.5 pl-5;
+  }
+  .prose-plan li::marker {
+    @apply text-ink-muted;
+  }
+  .prose-plan blockquote {
+    @apply border-hairline-strong text-ink-muted border-l-2 pl-4 italic;
+  }
+  .prose-plan code {
+    @apply bg-raised text-ink rounded px-1.5 py-0.5 text-xs;
+  }
+  .prose-plan pre {
+    @apply bg-raised border-hairline overflow-x-auto rounded-xl border p-3;
+  }
+  .prose-plan pre code {
+    @apply bg-transparent p-0;
+  }
+  .prose-plan hr {
+    @apply border-hairline my-5;
+  }
+  /* Tables scroll inside their own container rather than widening the page. */
+  .prose-plan table {
+    @apply block w-full overflow-x-auto text-left text-xs;
+    border-collapse: collapse;
+  }
+  .prose-plan th {
+    @apply text-ink border-hairline border-b px-3 py-2 font-semibold whitespace-nowrap;
+  }
+  .prose-plan td {
+    @apply border-hairline border-b px-3 py-2 align-top;
+  }
+
+  /* Faint diagonal hatch used behind hero panels for texture. */
+  .hatch {
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.03) 0px,
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 7px
+    );
+  }
+}

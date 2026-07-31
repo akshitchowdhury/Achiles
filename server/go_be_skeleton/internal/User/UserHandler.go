@@ -91,15 +91,41 @@ func GetBMI_BMR(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	calBMR := (CalculateBmr(&u))
 
 	u_Verdict := Get_User_verdict(calBmi)
-	specsQuery := `
-		INSERT INTO user_specs (user_id, bmi_value, bmr_value, verdict) 
-		VALUES ($1, $2, $3, $4)
-	`
-	commandTag, err := db.Exec(r.Context(), specsQuery, u.Id, calBmi, calBMR, u_Verdict)
-	if err != nil {
 
-		fmt.Println(calBmi, calBMR, u_Verdict, err)
-		http.Error(w, "Failed to update user", http.StatusInternalServerError)
+	w_intake := calculateWaterIntake(u.Weight)
+	specsQuery := `
+		INSERT INTO user_specs (user_id, bmi_value, bmr_value, verdict,water_intake) 
+		VALUES ($1, $2, $3, $4, $5)
+	`
+	commandTag, err := db.Exec(r.Context(), specsQuery, u.Id, calBmi, calBMR, u_Verdict, w_intake)
+	if err != nil {
+		editQuery := `
+		UPDATE user_specs 
+SET 
+  bmi_value = $2, 
+  bmr_value = $3, 
+  verdict = $4, 
+  water_intake = $5
+WHERE user_id = $1;
+	`
+		commandTag, err := db.Exec(r.Context(), editQuery, u.Id, calBmi, calBMR, u_Verdict, w_intake)
+
+		if err != nil {
+			http.Error(w, "could not edit", http.StatusInternalServerError)
+			return
+		}
+
+		if commandTag.RowsAffected() == 0 {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"Response: ":     "Exisitng user bmi updated",
+			"Calculated BMI": calBmi,
+			"Calculated BMR": calBMR, "Verict_user": u_Verdict,
+			"Water intake": w_intake})
 		return
 	}
 
@@ -109,8 +135,10 @@ func GetBMI_BMR(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"Calculated BMI": calBmi,
-		"Calculated BMR": calBMR, "Verict_user": u_Verdict})
+	json.NewEncoder(w).Encode(map[string]any{"Response: ": "NEw user bmi created",
+		"Calculated BMI": calBmi,
+		"Calculated BMR": calBMR, "Verict_user": u_Verdict,
+		"Water intake": w_intake})
 
 }
 
@@ -130,7 +158,7 @@ func GetUserById(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 
 	// Selected 6 columns
 	query := "SELECT id, name, age, weight, gender, height_cm FROM userinfo WHERE id = $1"
-	specs_query := "SELECT user_id, bmi_value, bmr_value, verdict FROM user_specs WHERE user_id = $1"
+	specs_query := "SELECT user_id, bmi_value, bmr_value, verdict, water_intake FROM user_specs WHERE user_id = $1"
 	var u User
 
 	var s Specs
@@ -160,6 +188,7 @@ func GetUserById(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 		&s.U_Bmi.Bmi_value,
 		&s.U_Bmr.Bmr_value,
 		&s.Verdict,
+		&s.U_water_intake,
 	)
 
 	if specErr != nil {
@@ -173,12 +202,13 @@ func GetUserById(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	specArr := map[string]any{"BMI": s.U_Bmi.Bmi_value, "BMR": s.U_Bmr.Bmr_value, "Verdict": s.Verdict}
+	specArr := map[string]any{"BMI": s.U_Bmi.Bmi_value, "BMR": s.U_Bmr.Bmr_value, "Verdict": s.Verdict, "WaterIntake": s.U_water_intake}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
 		"userDetails": map[string]any{
 			"id":        u.Id, // Replace with your actual user fields
 			"name":      u.Name,
+			"weight":    u.Weight,
 			"age":       u.Age,
 			"gender":    u.Gender,
 			"height_cm": u.Height_cm,
