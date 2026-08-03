@@ -5,6 +5,9 @@ export const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
   headers: { 'Content-Type': 'application/json' },
   timeout: 30_000,
+  // The Google sign-in session lives in an HttpOnly cookie, which axios only
+  // sends when asked. Harmless for the endpoints that ignore it.
+  withCredentials: true,
 })
 
 /**

@@ -1,14 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { ArrowRight, Flame, HeartPulse, Timer } from 'lucide-react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { SelectField, TextField } from '../components/ui/Field'
 import { ErrorPanel } from '../components/ui/Feedback'
+import { GoogleButton } from '../components/ui/GoogleButton'
 import { Wordmark } from '../components/layout/Logo'
 import { apiErrorMessage } from '../api/client'
+import { startGoogleLogin } from '../api/auth'
+import { googleIdentity, useAuthSession } from '../hooks/useAuth'
 import { useGuestSignUp, useResumeSession } from '../hooks/useUser'
 import { useSession } from '../store/session'
 
@@ -29,10 +32,23 @@ const HIGHLIGHTS = [
   { icon: Timer, title: 'A plan, not a guess', body: 'Structured nutrition and training built around your numbers.' },
 ]
 
+/** Router state set by AuthCallbackPage when it bounces someone back here. */
+interface WelcomeState {
+  google?: { email: string; name: string; picture: string }
+  authError?: string
+}
+
 export function WelcomePage() {
   const userId = useSession((s) => s.userId)
   const navigate = useNavigate()
+  const location = useLocation()
   const [mode, setMode] = useState<'guest' | 'resume'>('guest')
+
+  const { google, authError } = (location.state ?? {}) as WelcomeState
+  // Falls back to the cookie so a refresh on this page keeps the Google
+  // context that router state alone would lose.
+  const { data: auth } = useAuthSession()
+  const identity = google ?? googleIdentity(auth)
 
   const signUp = useGuestSignUp()
   const resume = useResumeSession()
@@ -42,6 +58,15 @@ export function WelcomePage() {
     resolver: zodResolver(guestSchema),
     defaultValues: { name: '', age: '' as unknown as number, weight: '' as unknown as number, height_cm: '' as unknown as number, gender: 'Male' },
   })
+
+  // Google gives us a name and nothing else the BMR maths needs, so prefill
+  // that one field and leave the rest to be filled in.
+  const { setValue, getValues } = form
+  useEffect(() => {
+    if (identity?.name && !getValues('name')) {
+      setValue('name', identity.name, { shouldValidate: false })
+    }
+  }, [identity?.name, setValue, getValues])
 
   if (userId != null) return <Navigate to="/" replace />
 
@@ -106,13 +131,40 @@ export function WelcomePage() {
           </div>
 
           <h2 className="text-ink mt-8 text-2xl font-semibold tracking-tight lg:mt-0">
-            {mode === 'guest' ? 'Start as a guest' : 'Welcome back'}
+            {identity
+              ? 'One more step'
+              : mode === 'guest'
+                ? 'Start as a guest'
+                : 'Welcome back'}
           </h2>
           <p className="text-ink-dim mt-1.5 text-sm">
-            {mode === 'guest'
-              ? 'Five numbers and you are in. We use them to compute your baseline.'
-              : 'Enter the athlete number you were given when you signed up.'}
+            {identity
+              ? `Signed in as ${identity.email}. Google can't tell us your measurements, so we need those before we can build your baseline.`
+              : mode === 'guest'
+                ? 'Five numbers and you are in. We use them to compute your baseline.'
+                : 'Enter the athlete number you were given when you signed up.'}
           </p>
+
+          {authError && (
+            <div className="mt-5">
+              <ErrorPanel title="Google sign-in failed" message={authError} />
+            </div>
+          )}
+
+          {/* Google sign-in — a full-page redirect to the Go /login route,
+              so it deliberately sits outside the forms below. */}
+          {!identity && (
+            <>
+              <div className="mt-6">
+                <GoogleButton onClick={() => startGoogleLogin()} />
+              </div>
+              <div className="mt-6 flex items-center gap-3" aria-hidden="true">
+                <span className="border-hairline flex-1 border-t" />
+                <span className="text-ink-muted text-xs">or</span>
+                <span className="border-hairline flex-1 border-t" />
+              </div>
+            </>
+          )}
 
           {/* Mode switch */}
           <div

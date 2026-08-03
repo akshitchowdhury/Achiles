@@ -3,7 +3,10 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -19,6 +22,29 @@ type Config struct {
 	DB   DBConfig
 	CORS CORSConfig
 	AI   AIConfig
+	AUTH AuthConfig
+}
+
+// AuthConfig holds the Google OAuth client credentials plus everything the
+// session cookie minted after a successful callback needs.
+type AuthConfig struct {
+	ClientID     string
+	ClientSecret string
+	// RedirectURI must match a redirect URI registered on the Google client
+	// exactly — the browser is sent straight to the Go server, not through
+	// the Vite proxy, so it carries the full /api/... path.
+	RedirectURI string
+	// FrontendURL is where the callback sends the browser once the code has
+	// been exchanged. No trailing slash.
+	FrontendURL   string
+	SessionSecret string
+	SessionTTL    time.Duration
+	CookieSecure  bool
+}
+
+// Configured reports whether Google sign-in can be attempted at all.
+func (c AuthConfig) Configured() bool {
+	return c.ClientID != "" && c.ClientSecret != "" && c.RedirectURI != ""
 }
 
 // HTTPConfig controls the HTTP server.
@@ -104,6 +130,29 @@ func Load() (*Config, error) {
 
 		AI: AIConfig{
 			API_KEY: getEnv("GROQ_KEY", "")},
+
+		AUTH: AuthConfig{
+			ClientID:      getEnv("CLIENTID", ""),
+			ClientSecret:  getEnv("CLIENTSECRET", ""),
+			RedirectURI:   getEnv("REDIRECTURI", "http://localhost:8080/api/auth/oauth/google/callback"),
+			FrontendURL:   strings.TrimRight(getEnv("FRONTEND_URL", "http://localhost:5173"), "/"),
+			SessionSecret: getEnv("SESSION_SECRET", ""),
+			SessionTTL:    getEnvDuration("SESSION_TTL", 24*time.Hour),
+			CookieSecure:  getEnvBool("SESSION_COOKIE_SECURE", false)},
+	}
+
+	if cfg.AUTH.SessionSecret == "" {
+		// Outside development an unset secret is a deployment mistake; in dev
+		// an ephemeral one is fine — it only means sessions die on restart.
+		if cfg.Env != "development" {
+			return nil, fmt.Errorf("config: SESSION_SECRET must be set when APP_ENV=%s", cfg.Env)
+		}
+		secret, err := randomSecret()
+		if err != nil {
+			return nil, err
+		}
+		cfg.AUTH.SessionSecret = secret
+		slog.Warn("config: SESSION_SECRET is unset, generated an ephemeral one — sessions will not survive a restart")
 	}
 
 	if err := cfg.validate(); err != nil {
@@ -125,6 +174,17 @@ func (c *Config) validate() error {
 		}
 	}
 	return nil
+}
+
+// randomSecret produces a 32-byte hex key used to HMAC-sign the session
+// cookie. It is not a credential store — it only stops a browser from
+// forging the identity the Google callback wrote into that cookie.
+func randomSecret() (string, error) {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("config: generate session secret: %w", err)
+	}
+	return hex.EncodeToString(buf), nil
 }
 
 func getEnv(key, fallback string) string {

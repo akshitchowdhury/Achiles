@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	auth "github.com/yourusername/goBackendSkeleton/internal/Auth"
 	"github.com/yourusername/goBackendSkeleton/internal/config"
 	"github.com/yourusername/goBackendSkeleton/internal/db"
 	"github.com/yourusername/goBackendSkeleton/internal/server"
@@ -40,6 +41,12 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 	defer pool.Close()
+
+	// The OAuth identity table is created here rather than by a migration so
+	// a fresh database can serve a Google sign-in on first boot.
+	if err := auth.EnsureSchema(ctx, pool); err != nil {
+		return err
+	}
 
 	srv := server.New(cfg, pool, logger)
 

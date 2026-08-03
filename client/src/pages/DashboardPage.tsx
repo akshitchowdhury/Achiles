@@ -19,7 +19,6 @@ import {
   macroTarget,
   tdee,
   verdictTone,
-  waterTargetLitres,
 } from '../lib/fitness'
 import { num, decimal } from '../lib/format'
 

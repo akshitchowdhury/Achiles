@@ -1,0 +1,8 @@
+{"web":{"client_id":"197385228934-7h5af8q29v254sncgc5ptru39la944at.apps.googleusercontent.com",
+"project_id":"achiles-504110",
+"auth_uri":"https://accounts.google.com/o/oauth2/auth",
+"token_uri":"https://oauth2.googleapis.com/token",
+"auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs",
+"client_secret":"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",
+"redirect_uris":["http://localhost:8080/api/auth/oauth/google/callback"],
+"javascript_origins":["http://localhost:5173"]}}

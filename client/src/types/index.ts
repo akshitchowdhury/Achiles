@@ -22,11 +22,6 @@ export interface UserSpecs {
   WaterIntake: number
 }
 
-/**
- * GET /getUserById returns `{ userDetails: … }`. Note it does NOT include
- * `weight` — the handler omits it from the JSON it builds, so weight has to
- * come from the session store instead.
- */
 export interface UserDetails {
   id: number
   name: string
@@ -44,6 +39,23 @@ export interface BmiResponse {
   'Calculated BMR': number
   Verict_user: string
 }
+
+/**
+ * GET /auth/me — who the Google session cookie says you are.
+ *
+ * `user_id` is null until the Google account has been linked to an athlete
+ * row, which happens the first time you finish the profile form.
+ */
+export interface GoogleIdentity {
+  authenticated: true
+  provider: string
+  email: string
+  name: string
+  picture: string
+  user_id: number | null
+}
+
+export type AuthSession = { authenticated: false } | GoogleIdentity
 
 /** Shape of the Groq chat completion nested inside askGroq's `Ai_Response`. */
 export interface GroqCompletion {
