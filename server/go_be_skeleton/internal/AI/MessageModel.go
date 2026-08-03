@@ -124,6 +124,8 @@ WHERE u.id = $1`
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]any{"message": "Responded succesfully",
 		"Ai_Response": string(body),
+		"Info":        c.API_KEY,
+		"Payload":     payload,
 	})
 	// "Client request": clientRequest})
 

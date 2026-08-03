@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { ArrowRight, Flame, HeartPulse, Timer } from 'lucide-react'
+import { ArrowRight, Flame, HeartPulse, Loader2, Timer } from 'lucide-react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { SelectField, TextField } from '../components/ui/Field'
@@ -68,7 +68,37 @@ export function WelcomePage() {
     }
   }, [identity?.name, setValue, getValues])
 
+  /**
+   * The session cookie can outlive localStorage — cleared site data, a second
+   * browser profile, a different device. When the server still has an athlete
+   * linked to this Google account there is nothing to ask for, so restore it
+   * instead of showing the form. Its own mutation, so a failure here doesn't
+   * light up the "I have an ID" form's error panel; if it does fail the form
+   * below is the fallback.
+   */
+  const linkedId = googleIdentity(auth)?.user_id ?? null
+  const restore = useResumeSession()
+  const { mutate: startRestore } = restore
+  const restoreStarted = useRef(false)
+  useEffect(() => {
+    if (linkedId == null || restoreStarted.current) return
+    restoreStarted.current = true
+    startRestore(linkedId)
+  }, [linkedId, startRestore])
+
   if (userId != null) return <Navigate to="/" replace />
+
+  if (restore.isPending) {
+    return (
+      <div className="bg-plane flex min-h-svh flex-col items-center justify-center gap-6 px-5">
+        <Wordmark />
+        <p role="status" className="text-ink-dim flex items-center gap-2 text-sm">
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          Restoring your profile
+        </p>
+      </div>
+    )
+  }
 
   const onGuestSubmit = form.handleSubmit(async (values) => {
     const parsed = guestSchema.parse(values)

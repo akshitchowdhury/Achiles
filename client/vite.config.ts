@@ -2,7 +2,9 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-const GO_SERVER = 'http://localhost:8080'
+// Override with GO_SERVER=http://localhost:8081 to point the dev proxy at a
+// second backend instance without editing this file.
+const GO_SERVER = process.env.GO_SERVER ?? 'http://localhost:8080'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
