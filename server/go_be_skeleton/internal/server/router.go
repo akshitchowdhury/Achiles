@@ -7,6 +7,7 @@ import (
 
 	ai "github.com/yourusername/goBackendSkeleton/internal/AI"
 	auth "github.com/yourusername/goBackendSkeleton/internal/Auth"
+	docgeneration "github.com/yourusername/goBackendSkeleton/internal/DocGeneration"
 	user "github.com/yourusername/goBackendSkeleton/internal/User"
 	"github.com/yourusername/goBackendSkeleton/internal/config"
 	"github.com/yourusername/goBackendSkeleton/internal/server/handlers"
@@ -38,6 +39,7 @@ func newRouter(pool *pgxpool.Pool, cfg *config.Config) *http.ServeMux {
 	mux.HandleFunc("/auth/me", func(w http.ResponseWriter, r *http.Request) { auth.HandleMe(db, w, r, cfg.AUTH) })
 	mux.HandleFunc("/auth/link", func(w http.ResponseWriter, r *http.Request) { auth.HandleLink(db, w, r, cfg.AUTH) })
 	mux.HandleFunc("/auth/logout", func(w http.ResponseWriter, r *http.Request) { auth.HandleLogout(w, r, cfg.AUTH) })
+	mux.HandleFunc("/docgeneration", func(w http.ResponseWriter, r *http.Request) { docgeneration.ServeDocxHandler(w, r) })
 
 	return mux
 }
