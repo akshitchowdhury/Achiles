@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addUser, computeSpecs, getUserById } from '../api/users'
 import { linkAthlete } from '../api/auth'
 import { askGroq } from '../api/ai'
+import { generatePlanDoc } from '../api/docs'
 import { authKeys, googleIdentity, useAuthSession } from './useAuth'
+import { saveBlob } from '../lib/download'
 import { useSession } from '../store/session'
 import type { NewUser } from '../types'
 
@@ -112,5 +114,16 @@ export function useResumeSession() {
 export function useCoachPlan() {
   return useMutation({
     mutationFn: (id: number) => askGroq(id),
+  })
+}
+
+/**
+ * Sends a finished plan to /docgeneration and saves the .docx it returns.
+ * Nothing is cached — the document is a one-shot side effect, not state.
+ */
+export function usePlanDoc() {
+  return useMutation({
+    mutationFn: (content: string) => generatePlanDoc(content),
+    onSuccess: ({ blob, filename }) => saveBlob(blob, filename),
   })
 }

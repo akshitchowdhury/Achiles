@@ -170,3 +170,86 @@ func (h *UserHandler) EditOne(w http.ResponseWriter, r *http.Request) {
 //     &specs.BMRValue,
 //     &specs.Verdict,
 // )
+
+
+
+package docgeneration
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+
+	"github.com/gomutex/godocx"
+)
+
+func ServeDocxHandler(w http.ResponseWriter, r *http.Request) {
+	// 1. Create the godocx document
+	document, err := godocx.NewDocument()
+	if err != nil {
+		http.Error(w, "Failed to create document", http.StatusInternalServerError)
+		return
+	}
+
+	document.AddHeading("Document Title", 0)
+
+	// Add paragraphs
+	p := document.AddParagraph("A plain paragraph having some ")
+	p.AddText("bold").Bold(true)
+	p.AddText(" and some ")
+	p.AddText("italic.").Italic(true)
+
+	document.AddHeading("Heading, level 1", 1)
+	document.AddParagraph("Intense quote").Style("Intense Quote")
+	document.AddParagraph("first item in unordered list").Style("List Bullet")
+	document.AddParagraph("first item in ordered list").Style("List Number")
+
+	// Add table
+	records := []struct{ Qty, ID, Desc string }{
+		{"5", "A001", "Laptop"},
+		{"10", "B202", "Smartphone"},
+		{"2", "E505", "Smartwatch"},
+	}
+
+	table := document.AddTable()
+	table.Style("LightList-Accent4")
+	hdrRow := table.AddRow()
+	hdrRow.AddCell().AddParagraph("Qty")
+	hdrRow.AddCell().AddParagraph("ID")
+	hdrRow.AddCell().AddParagraph("Description")
+
+	for _, record := range records {
+		row := table.AddRow()
+		row.AddCell().AddParagraph(record.Qty)
+		row.AddCell().AddParagraph(record.ID)
+		row.AddCell().AddParagraph(record.Desc)
+	}
+
+	// 2. Save document to a temporary file on disk
+	tempFile, err := os.CreateTemp("", "generated-*.docx")
+	if err != nil {
+		http.Error(w, "Failed to create temp file", http.StatusInternalServerError)
+		return
+	}
+	defer os.Remove(tempFile.Name()) // Clean up temp file when done
+	defer tempFile.Close()
+
+	if err := document.SaveTo(tempFile.Name()); err != nil {
+		http.Error(w, "Failed to save document", http.StatusInternalServerError)
+		return
+	}
+
+	// 3. Set standard HTTP download headers
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+	w.Header().Set("Content-Disposition", `attachment; filename="demo.docx"`)
+
+	// 4. Serve the temp file back over HTTP
+	http.ServeFile(w, r, tempFile.Name())
+}
+
+func StartServer() {
+	http.HandleFunc("/download-doc", ServeDocxHandler)
+	fmt.Println("Server listening on http://localhost:8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
