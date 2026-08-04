@@ -15,7 +15,7 @@ type AiContent struct {
 }
 
 func ServeDocxHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Create the godocx document
+
 	document, err := godocx.NewDocument()
 	if r.Method != http.MethodGet {
 		http.Error(w, "Wrong api call", http.StatusBadRequest)
@@ -32,12 +32,11 @@ func ServeDocxHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	document.AddHeading("Comprehensive Guide from Coach", 0)
+	if err := ConvertMarkdownToDocx(content.Content, document); err != nil {
+		http.Error(w, "Failed to process document formatting", http.StatusInternalServerError)
+		return
+	}
 
-	// Add paragraphs
-	p := document.AddParagraph(content.Content)
-
-	// 2. Save document to a temporary file on disk
 	tempFile, err := os.CreateTemp("", "generated-*.docx")
 	if err != nil {
 		fmt.Println(err)
@@ -60,6 +59,6 @@ func ServeDocxHandler(w http.ResponseWriter, r *http.Request) {
 	// 4. Serve the temp file back over HTTP
 	http.ServeFile(w, r, tempFile.Name())
 
-	json.NewEncoder(w).Encode(p)
+	// json.NewEncoder(w).Encode(p)
 
 }
