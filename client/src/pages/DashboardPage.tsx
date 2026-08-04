@@ -109,9 +109,9 @@ export function DashboardPage() {
         <StatTile
           label="Weight (kg)"
           value={user.weight}
-          unit={storedWeight ? 'L' : undefined}
+          unit={storedWeight ? 'kg' : undefined}
           icon={WeightIcon}
-          hint={storedWeight ? '35 ml per kg — estimated' : 'Needs your weight'}
+          hint={`Weighed on empty stomach in morning`}
         />
         <StatTile
           label="Water Intake (L)"
