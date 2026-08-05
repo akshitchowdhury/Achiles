@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	ai "github.com/yourusername/goBackendSkeleton/internal/AI"
 	auth "github.com/yourusername/goBackendSkeleton/internal/Auth"
@@ -15,7 +16,7 @@ import (
 
 // newRouter wires up routes to their handlers. Add new route groups here
 // as the API grows — e.g. mux.Handle("/api/v1/users/", usersHandler).
-func newRouter(pool *pgxpool.Pool, cfg *config.Config) *http.ServeMux {
+func newRouter(pool *pgxpool.Pool, cfg *config.Config, rdb *redis.Client) *http.ServeMux {
 	mux := http.NewServeMux()
 	db := pool
 
@@ -25,7 +26,7 @@ func newRouter(pool *pgxpool.Pool, cfg *config.Config) *http.ServeMux {
 	mux.HandleFunc("/addUser", func(w http.ResponseWriter, r *http.Request) { user.AddUser(db, w, r) })
 	mux.HandleFunc("/getUserById", func(w http.ResponseWriter, r *http.Request) { user.GetUserById(db, w, r) })
 	mux.HandleFunc("/getBMI", func(w http.ResponseWriter, r *http.Request) { user.GetBMI_BMR(db, w, r) })
-	mux.HandleFunc("/askGroq", func(w http.ResponseWriter, r *http.Request) { ai.CallGroq(db, w, r, cfg.AI) })
+	mux.HandleFunc("/askGroq", func(w http.ResponseWriter, r *http.Request) { ai.CallGroq(db, w, r, cfg.AI, rdb) })
 
 	// Google OAuth. The client reaches /login, /auth/me, /auth/link and
 	// /auth/logout through the Vite proxy, which strips the /api prefix.
@@ -39,7 +40,7 @@ func newRouter(pool *pgxpool.Pool, cfg *config.Config) *http.ServeMux {
 	mux.HandleFunc("/auth/me", func(w http.ResponseWriter, r *http.Request) { auth.HandleMe(db, w, r, cfg.AUTH) })
 	mux.HandleFunc("/auth/link", func(w http.ResponseWriter, r *http.Request) { auth.HandleLink(db, w, r, cfg.AUTH) })
 	mux.HandleFunc("/auth/logout", func(w http.ResponseWriter, r *http.Request) { auth.HandleLogout(w, r, cfg.AUTH) })
-	mux.HandleFunc("/docgeneration", func(w http.ResponseWriter, r *http.Request) { docgeneration.ServeDocxHandler(w, r) })
+	mux.HandleFunc("/docgeneration", func(w http.ResponseWriter, r *http.Request) { docgeneration.ServeDocxHandler(w, r, rdb) })
 
 	return mux
 }

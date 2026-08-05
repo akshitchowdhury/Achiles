@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	user "github.com/yourusername/goBackendSkeleton/internal/User"
 	"github.com/yourusername/goBackendSkeleton/internal/config"
+	"github.com/yourusername/goBackendSkeleton/internal/db/connect"
 )
 
 type Core struct {
@@ -35,7 +37,7 @@ type Message struct {
 //   }]
 // }
 
-func CallGroq(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request, c config.AIConfig) {
+func CallGroq(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request, c config.AIConfig, rdb *redis.Client) {
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "wrong api call", http.StatusBadRequest)
@@ -77,7 +79,7 @@ WHERE u.id = $1`
 	)
 
 	clientRequest := fmt.Sprintf(
-		"Help me improve my physique and give me a structured nutrition and workout plan based on my personal data: "+
+		" Format the response as Markdown using ## for section headings and - for bullets. My request is Help me improve my physique and give me a structured nutrition and workout plan based on my personal data: "+
 			"Age: %d, Weight: %.2f kg, Gender: %s, Height: %.2f cm, BMI: %.2f, BMR: %.2f, Verdict: %s",
 		u.Age,
 		u.Weight,
@@ -115,18 +117,38 @@ WHERE u.id = $1`
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.API_KEY))
 	// req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.API_KEY))
-	resp, _ := client.Do(req)
-	defer resp.Body.Close()
 
-	// Read output
-	body, _ := io.ReadAll(resp.Body)
+	if specs.Verdict != "Healthy" {
+		resp, _ := client.Do(req)
+		defer resp.Body.Close()
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]any{"message": "Responded succesfully",
-		"Ai_Response": string(body),
-		"Info":        c.API_KEY,
-		"Payload":     payload,
-	})
+		// Read output
+		body, _ := io.ReadAll(resp.Body)
+
+		connect.AddCache(rdb, string(body), ctx)
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]any{"message": "Responded succesfully",
+			"Ai_Response": string(body),
+			// "Info":        c.API_KEY,
+			// "Payload":     payload,
+		})
+	} else {
+
+		resp, err := connect.GetCache(rdb, ctx)
+		if err != nil {
+			http.Error(w, "Could not fetch Cache", http.StatusInternalServerError)
+			return
+		}
+
+		json.NewEncoder(w).Encode(map[string]any{"message": "Cached response fetched succesfully",
+			"Ai_Response": resp,
+			// "Info":        c.API_KEY,
+			// "Payload":     payload,
+		})
+
+	}
+
 	// "Client request": clientRequest})
 
 }

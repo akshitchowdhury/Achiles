@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/yourusername/goBackendSkeleton/internal/config"
 	"github.com/yourusername/goBackendSkeleton/internal/server/middleware"
@@ -20,8 +21,8 @@ type Server struct {
 
 // New builds a Server ready to Start, wiring the router through the
 // standard middleware chain: recover -> logging -> CORS -> routes.
-func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) *Server {
-	mux := newRouter(pool, cfg)
+func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger, rdb *redis.Client) *Server {
+	mux := newRouter(pool, cfg, rdb)
 
 	handler := middleware.Chain(mux,
 		middleware.Recover(logger),

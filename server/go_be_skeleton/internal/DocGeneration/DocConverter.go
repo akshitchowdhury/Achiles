@@ -2,6 +2,7 @@ package docgeneration
 
 import (
 	"bytes"
+	"strings"
 
 	"github.com/gomutex/godocx/docx"
 	"github.com/yuin/goldmark"
@@ -10,6 +11,35 @@ import (
 )
 
 // ConvertMarkdownToDocx parses raw Markdown text and applies formatting to a godocx Document
+
+func addList(list *ast.List, source []byte, doc *docx.RootDoc, depth int) {
+	for item := list.FirstChild(); item != nil; item = item.NextSibling() {
+		li, ok := item.(*ast.ListItem)
+		if !ok {
+			continue
+		}
+
+		p := doc.AddParagraph("")
+		if list.IsOrdered() {
+			p.Style("List Number")
+		} else {
+			p.Style("List Bullet")
+		}
+		if depth > 0 {
+			p.AddText(strings.Repeat("    ", depth)) // crude indent, see note
+		}
+
+		for c := li.FirstChild(); c != nil; c = c.NextSibling() {
+			switch child := c.(type) {
+			case *ast.TextBlock, *ast.Paragraph: // tight vs loose list
+				parseInlineFormatting(child, source, p)
+			case *ast.List: // nested sub-list
+				addList(child, source, doc, depth+1)
+			}
+		}
+	}
+}
+
 func ConvertMarkdownToDocx(mdContent string, doc *docx.RootDoc) error {
 	md := goldmark.New()
 	source := []byte(mdContent)
@@ -31,23 +61,7 @@ func ConvertMarkdownToDocx(mdContent string, doc *docx.RootDoc) error {
 			parseInlineFormatting(node, source, p)
 
 		case *ast.List:
-			// Process List Items (Ordered or Unordered)
-			for item := node.FirstChild(); item != nil; item = item.NextSibling() {
-				if listItem, ok := item.(*ast.ListItem); ok {
-					p := doc.AddParagraph("")
-					if node.IsOrdered() {
-						p.Style("List Number")
-					} else {
-						p.Style("List Bullet")
-					}
-					// Parse contents inside list item
-					for c := listItem.FirstChild(); c != nil; c = c.NextSibling() {
-						if para, ok := c.(*ast.Paragraph); ok {
-							parseInlineFormatting(para, source, p)
-						}
-					}
-				}
-			}
+			addList(node, source, doc, 0)
 		}
 	}
 	return nil
