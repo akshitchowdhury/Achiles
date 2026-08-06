@@ -1,0 +1,212 @@
+/* Per-plan structural CSS: backgrounds, ornament and texture.
+   Hand-written — unlike plan-themes.css, which is generated.
+
+   What belongs here: things that are not expressible as a token. Asset-free
+   backgrounds (every one of these is gradients only — no images, no network),
+   decorative ornament, and the one whitelisted exception to "tokens only",
+   border-width, which Tailwind does not expose as a theme token the way colour
+   and radius are.
+
+   What does NOT belong here: colours. Those live in plan-themes.css so they
+   stay measured and overridable in one place. */
+
+@layer components {
+  /* Every shell's root. The base is a plain plane; each plan layers its own
+     texture on top. background-attachment: fixed keeps the texture still while
+     content scrolls, which is what makes it read as a set rather than wallpaper. */
+  .plan-bg {
+    background-color: var(--color-plane);
+    background-attachment: fixed;
+  }
+
+  /* The content region. Named so the plan-scoped rules below have something to
+     target without reaching into pages. */
+  .plan-region {
+    min-width: 0;
+  }
+
+  /* ── spartan · The Stoa ─────────────────────────────────────────────────
+     Warm top-light plus faint sandstone striation. */
+  :root[data-plan='spartan'] .plan-bg {
+    background-image:
+      radial-gradient(120% 60% at 50% -10%, rgb(240 196 85 / 0.1), transparent 60%),
+      repeating-linear-gradient(90deg, rgb(236 232 221 / 0.022) 0 1px, transparent 1px 6px);
+  }
+
+  /* A Greek meander fret, drawn with gradients rather than an image. */
+  .plan-meander {
+    height: 6px;
+    background-image:
+      repeating-linear-gradient(
+        90deg,
+        var(--color-accent-edge-soft) 0 2px,
+        transparent 2px 6px,
+        var(--color-accent-edge-soft) 6px 8px,
+        transparent 8px 14px
+      );
+    opacity: 0.7;
+  }
+
+  /* ── greek-god · The Peristyle ──────────────────────────────────────────
+     Sky wash, gold halo, and two soft marble highlights. */
+  :root[data-plan='greek-god'] .plan-bg {
+    background-image:
+      radial-gradient(90% 50% at 50% -20%, rgb(109 169 228 / 0.3), transparent 70%),
+      radial-gradient(50% 30% at 50% 0%, rgb(212 175 55 / 0.22), transparent 70%),
+      radial-gradient(42% 26% at 14% 20%, rgb(255 255 255 / 0.95), transparent 70%),
+      radial-gradient(38% 22% at 86% 34%, rgb(255 255 255 / 0.9), transparent 70%);
+  }
+
+  /* Fluted pillar. Purely decorative, hidden below xl by the shell — which is
+     exactly why it lives in the shell and not in a page. */
+  .plan-pillar {
+    background-image:
+      linear-gradient(
+        90deg,
+        rgb(29 53 87 / 0.14) 0 1px,
+        rgb(255 255 255 / 0.7) 1px 5px,
+        rgb(29 53 87 / 0.08) 5px 6px,
+        rgb(255 255 255 / 0.45) 6px 10px
+      ),
+      linear-gradient(180deg, rgb(255 255 255 / 0.6), rgb(214 211 206 / 0.5));
+    background-size: 10px 100%, 100% 100%;
+  }
+
+  /* ── superhero · Command Deck ───────────────────────────────────────────
+     Blueprint grid at two scales plus a top vignette. */
+  :root[data-plan='superhero'] .plan-bg {
+    background-image:
+      linear-gradient(rgb(74 146 255 / 0.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(74 146 255 / 0.055) 1px, transparent 1px),
+      linear-gradient(rgb(74 146 255 / 0.11) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(74 146 255 / 0.11) 1px, transparent 1px),
+      radial-gradient(120% 90% at 50% 0%, rgb(74 146 255 / 0.1), transparent 60%);
+    background-size:
+      8px 8px,
+      8px 8px,
+      64px 64px,
+      64px 64px,
+      100% 100%;
+  }
+
+  /* HUD corner brackets on the content region. */
+  .plan-brackets::before,
+  .plan-brackets::after {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-color: var(--color-accent-edge);
+    pointer-events: none;
+  }
+  .plan-brackets::before {
+    top: 0;
+    left: 0;
+    border-top: 1px solid;
+    border-left: 1px solid;
+  }
+  .plan-brackets::after {
+    right: 0;
+    bottom: 0;
+    border-right: 1px solid;
+    border-bottom: 1px solid;
+  }
+
+  /* ── athlete · Broadcast ────────────────────────────────────────────────
+     Diagonal speed streaks under a stadium-light wash. */
+  :root[data-plan='athlete'] .plan-bg {
+    background-image:
+      repeating-linear-gradient(105deg, rgb(255 255 255 / 0.028) 0 2px, transparent 2px 14px),
+      radial-gradient(70% 50% at 100% 100%, rgb(255 122 0 / 0.16), transparent 65%),
+      radial-gradient(60% 45% at 0% 0%, rgb(47 128 237 / 0.16), transparent 65%);
+  }
+
+  /* ── manga · Panel Grid ─────────────────────────────────────────────────
+     6px halftone dot, radiating speed lines, and a diagonal hatch. */
+  :root[data-plan='manga'] .plan-bg {
+    background-image:
+      radial-gradient(rgb(242 242 242 / 0.1) 1px, transparent 1.4px),
+      repeating-conic-gradient(
+        from 200deg at 108% -8%,
+        rgb(242 242 242 / 0.07) 0 0.6deg,
+        transparent 0.6deg 3deg
+      ),
+      repeating-linear-gradient(58deg, rgb(242 242 242 / 0.04) 0 1px, transparent 1px 9px);
+    background-size:
+      6px 6px,
+      100% 100%,
+      100% 100%;
+  }
+
+  /* ── Shared: kill every decorative animation for reduced motion ──────── */
+  @media (prefers-reduced-motion: reduce) {
+    .plan-sweep,
+    .plan-pulse {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+
+  /* A slow scanner sweep across the HUD strip. */
+  .plan-sweep {
+    animation: plan-sweep 5.5s linear infinite;
+  }
+  @keyframes plan-sweep {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .plan-pulse {
+    animation: plan-pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes plan-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+}
+
+/* ── Per-plan card edges — DELIBERATELY UNLAYERED ─────────────────────────
+   These three rules must sit outside @layer, and it is not a style choice.
+
+   They override Tailwind border utilities on elements that carry `border` and
+   `border-hairline` (every Card and StatTile). Tailwind emits utilities into
+   @layer utilities, which comes AFTER @layer components — and in the cascade,
+   layer order is resolved BEFORE specificity. So from inside @layer components
+   even a (0,3,0) selector loses to `.border` at (0,1,0), and all three rules
+   are silently dead: border-width snaps back to 1px, border-color back to the
+   hairline. Unlayered normal declarations outrank every layer, which is also
+   how plan-themes.css wins.
+
+   Targeted at .bg-surface / .border-hairline rather than a child combinator
+   because pages nest inside RouteTransition's wrapper and then their own layout
+   div, so `.plan-region > *` matches one anonymous div and nothing visible.
+
+   This is the whole of the documented "may target a utility class" exception.
+   Nothing else in the theme layer is allowed to. */
+
+/* spartan: a bronze rule across the top of every card. */
+:root[data-plan='spartan'] .plan-region .bg-surface {
+  border-top: 2px solid var(--color-accent-edge-soft);
+}
+
+/* athlete: the scoreboard tick down the left edge. */
+:root[data-plan='athlete'] .plan-region .bg-surface {
+  border-left: 3px solid var(--color-accent-edge);
+}
+
+/* manga: heavy ink panel borders. Scoped to .plan-region on purpose — global,
+   this would put 3px on every divider and header rule in the app. */
+:root[data-plan='manga'] .plan-region .border-hairline,
+:root[data-plan='manga'] .plan-region .border-hairline-strong {
+  border-width: 3px;
+  border-color: var(--color-ink);
+}

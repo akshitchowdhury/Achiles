@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import { ACTIVITY_LEVELS, tdee } from "../../lib/fitness";
 import { num } from "../../lib/format";
-import { AXIS_TICK, CHART, TOOLTIP_STYLE } from "./chartTheme";
+import { useChartTheme } from "./useChartTheme";
 
 interface CalorieByActivityChartProps {
   bmr: number;
@@ -22,6 +22,7 @@ interface CalorieByActivityChartProps {
  * Single series, so the card title does the work a legend would.
  */
 export function CalorieByActivityChart({ bmr }: CalorieByActivityChartProps) {
+  const chart = useChartTheme();
   const data = ACTIVITY_LEVELS.map((level) => ({
     label: level.label,
     detail: level.detail,
@@ -48,13 +49,13 @@ export function CalorieByActivityChart({ bmr }: CalorieByActivityChartProps) {
             axisLine={false}
             tickLine={false}
             width={78}
-            tick={{ fill: AXIS_TICK.fill, fontSize: AXIS_TICK.fontSize }}
+            tick={{ fill: chart.axisTick.fill, fontSize: chart.axisTick.fontSize }}
           />
           <Tooltip
-            cursor={{ fill: "rgba(255,255,255,0.04)" }}
-            contentStyle={TOOLTIP_STYLE}
-            labelStyle={{ color: CHART.ink, fontWeight: 600, marginBottom: 2 }}
-            itemStyle={{ color: CHART.inkDim }}
+            cursor={{ fill: chart.cursorFill }}
+            contentStyle={chart.tooltipStyle}
+            labelStyle={{ color: chart.ink, fontWeight: 600, marginBottom: 2 }}
+            itemStyle={{ color: chart.inkDim }}
             formatter={(value) => [
               `${num.format(Number(value))} kcal/day`,
               "Maintenance",
@@ -71,14 +72,14 @@ export function CalorieByActivityChart({ bmr }: CalorieByActivityChartProps) {
             isAnimationActive={false}
           >
             {data.map((row, index) => (
-              <Cell key={row.label} fill={CHART.ramp[index]} />
+              <Cell key={row.label} fill={chart.ramp[index]} />
             ))}
             <LabelList
               dataKey="calories"
               position="right"
               offset={8}
               formatter={(value) => num.format(Number(value))}
-              style={{ fill: CHART.inkDim, fontSize: 11 }}
+              style={{ fill: chart.inkDim, fontSize: 11 }}
             />
           </Bar>
         </BarChart>

@@ -54,7 +54,7 @@ export function OptionGroup<T extends string>({
                 'flex items-start gap-2.5 rounded-xl border p-3 text-left transition-colors',
                 selected
                   ? 'border-volt/60 bg-volt/5'
-                  : 'border-hairline-strong bg-raised hover:border-hairline-strong/80 hover:bg-raised/70',
+                  : 'border-hairline-strong bg-raised hover:bg-hover-wash',
               )}
             >
               <span
@@ -64,7 +64,7 @@ export function OptionGroup<T extends string>({
                   selected ? 'border-volt bg-volt' : 'border-ink-muted',
                 )}
               >
-                {selected && <Check className="text-plane size-3" strokeWidth={3} />}
+                {selected && <Check className="text-on-accent size-3" strokeWidth={3} />}
               </span>
               <span className="min-w-0">
                 <span className="text-ink block text-sm font-medium">{option.label}</span>

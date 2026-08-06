@@ -57,10 +57,10 @@ export function DashboardPage() {
       {/* Header */}
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-ink-muted text-xs font-medium tracking-wide uppercase">
+          <p className="text-ink-muted tracking-label text-xs font-medium uppercase">
             Your baseline
           </p>
-          <h1 className="text-ink mt-1 text-3xl font-semibold tracking-tight">
+          <h1 className="text-ink font-display mt-1 text-3xl font-semibold tracking-tight">
             {user.name.split(' ')[0]}&rsquo;s readout
           </h1>
         </div>
@@ -74,7 +74,7 @@ export function DashboardPage() {
             <p className="text-ink-muted text-xs font-medium">
               Daily maintenance &middot; {moderate.label.toLowerCase()} training
             </p>
-            <p className="text-ink mt-1.5 text-5xl font-semibold tracking-tight">
+            <p className="text-ink font-display mt-1.5 text-5xl font-semibold tracking-tight">
               {num.format(maintenance)}
               <span className="text-ink-muted ml-2 text-base font-normal">kcal</span>
             </p>
@@ -177,7 +177,7 @@ export function DashboardPage() {
           </div>
           <Link
             to="/coach"
-            className="bg-volt text-plane hover:bg-volt-hi inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-colors"
+            className="bg-volt text-on-accent hover:bg-volt-hi inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-colors"
           >
             Open AI panel
             <ArrowUpRight className="size-4" aria-hidden="true" />

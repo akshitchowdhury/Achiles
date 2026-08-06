@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Gender } from '../types'
+import { isPlanSlug, type Gender, type PlanSlug } from '../types'
 
 /**
  * A "session" is the athlete id we're currently looking at, kept in
@@ -22,6 +22,16 @@ interface SessionState {
   /** Set when the athlete arrived via Google rather than the guest form. */
   email: string | null
   picture: string | null
+  /**
+   * The training plan chosen after signup, which decides the theme and layout
+   * for the whole app. Null means the athlete has not picked yet, and the
+   * router sends them to /select-plan.
+   *
+   * This lives only on the device: the Go users table has no plan column, so
+   * there is nowhere on the server to put it yet. Clearing site data resets an
+   * athlete to the picker.
+   */
+  planSlug: PlanSlug | null
   signIn: (payload: {
     userId: number
     name?: string
@@ -30,6 +40,7 @@ interface SessionState {
     email?: string | null
     picture?: string | null
   }) => void
+  choosePlan: (slug: PlanSlug) => void
   signOut: () => void
 }
 
@@ -42,6 +53,9 @@ export const useSession = create<SessionState>()(
       gender: null,
       email: null,
       picture: null,
+      planSlug: null,
+      // Deliberately leaves planSlug alone: signIn also runs when an existing
+      // athlete resumes, and their theme should survive that.
       signIn: ({ userId, name, weight, gender, email, picture }) =>
         set({
           userId,
@@ -51,9 +65,38 @@ export const useSession = create<SessionState>()(
           email: email ?? null,
           picture: picture ?? null,
         }),
+      choosePlan: (planSlug) => set({ planSlug }),
       signOut: () =>
-        set({ userId: null, name: null, weight: null, gender: null, email: null, picture: null }),
+        set({
+          userId: null,
+          name: null,
+          weight: null,
+          gender: null,
+          email: null,
+          picture: null,
+          planSlug: null,
+        }),
     }),
-    { name: 'achiles.session' },
+    {
+      name: 'achiles.session',
+      /**
+       * Drop a planSlug this build no longer recognises.
+       *
+       * Storage outlives the code: a plan removed from PLAN_SLUGS would
+       * otherwise be read back as a live theme, and the athlete would land on a
+       * layout lookup with nothing behind it. Nulling it sends them to the
+       * picker, which is the honest outcome. registry.layoutFor guards the same
+       * case defensively; this is the one that keeps state and document in
+       * agreement.
+       */
+      merge: (persisted, current) => {
+        const saved = (persisted ?? {}) as Partial<SessionState>
+        return {
+          ...current,
+          ...saved,
+          planSlug: isPlanSlug(saved.planSlug) ? saved.planSlug : null,
+        }
+      },
+    },
   ),
 )

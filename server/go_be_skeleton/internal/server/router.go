@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -9,6 +10,7 @@ import (
 	ai "github.com/yourusername/goBackendSkeleton/internal/AI"
 	auth "github.com/yourusername/goBackendSkeleton/internal/Auth"
 	docgeneration "github.com/yourusername/goBackendSkeleton/internal/DocGeneration"
+	trainingplan "github.com/yourusername/goBackendSkeleton/internal/TrainingPlan"
 	user "github.com/yourusername/goBackendSkeleton/internal/User"
 	"github.com/yourusername/goBackendSkeleton/internal/config"
 	"github.com/yourusername/goBackendSkeleton/internal/server/handlers"
@@ -16,7 +18,7 @@ import (
 
 // newRouter wires up routes to their handlers. Add new route groups here
 // as the API grows — e.g. mux.Handle("/api/v1/users/", usersHandler).
-func newRouter(pool *pgxpool.Pool, cfg *config.Config, rdb *redis.Client) *http.ServeMux {
+func newRouter(pool *pgxpool.Pool, cfg *config.Config, rdb *redis.Client, ctx context.Context) *http.ServeMux {
 	mux := http.NewServeMux()
 	db := pool
 
@@ -42,6 +44,8 @@ func newRouter(pool *pgxpool.Pool, cfg *config.Config, rdb *redis.Client) *http.
 	mux.HandleFunc("/auth/link", func(w http.ResponseWriter, r *http.Request) { auth.HandleLink(db, w, r, cfg.AUTH) })
 	mux.HandleFunc("/auth/logout", func(w http.ResponseWriter, r *http.Request) { auth.HandleLogout(w, r, cfg.AUTH) })
 	mux.HandleFunc("/docgeneration", func(w http.ResponseWriter, r *http.Request) { docgeneration.ServeDocxHandler(w, r, rdb) })
+	mux.HandleFunc("/addPlans", func(w http.ResponseWriter, r *http.Request) { trainingplan.AddPlansHandler(db, w, r) })
+	mux.HandleFunc("/getPlans", func(w http.ResponseWriter, r *http.Request) { trainingplan.GetAllPlansHandler(db, w, r) })
 
 	return mux
 }

@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { WelcomePage } from './pages/WelcomePage'
+import { SelectPlanPage } from './pages/SelectPlanPage'
 import { AuthCallbackPage } from './pages/AuthCallbackPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { NutritionPage } from './pages/NutritionPage'
@@ -15,7 +16,12 @@ function App() {
       {/* Landing spot for the Go OAuth callback — see AuthCallbackPage. */}
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
-      {/* AppShell redirects to /welcome when there's no stored user id. */}
+      {/* Outside AppShell deliberately: the picker previews themes on the whole
+          screen, so it must not render inside the shell it is choosing. */}
+      <Route path="/select-plan" element={<SelectPlanPage />} />
+
+      {/* AppShell redirects to /welcome without a user id, and to /select-plan
+          without a chosen plan. */}
       <Route element={<AppShell />}>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/nutrition" element={<NutritionPage />} />

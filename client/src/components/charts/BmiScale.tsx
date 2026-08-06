@@ -1,7 +1,7 @@
 import { BMI_BANDS, BMI_SCALE_MAX, BMI_SCALE_MIN, bmiScalePosition } from '../../lib/fitness'
 import type { Tone } from '../../lib/fitness'
 import { decimal } from '../../lib/format'
-import { CHART } from './chartTheme'
+import { useChartTheme } from './useChartTheme'
 
 interface BmiScaleProps {
   bmi: number
@@ -20,7 +20,7 @@ const widthOf = (from: number, to: number) => ((to - from) / span) * 100
  */
 export function BmiScale({ bmi, tone }: BmiScaleProps) {
   const left = bmiScalePosition(bmi)
-  const markerColor = CHART.status[tone]
+  const markerColor = useChartTheme().status[tone]
 
   return (
     <figure className="mt-2">
@@ -31,7 +31,7 @@ export function BmiScale({ bmi, tone }: BmiScaleProps) {
           style={{ left: `${left}%` }}
         >
           <span
-            className="text-plane rounded-md px-1.5 py-0.5 text-xs font-semibold"
+            className="text-on-accent rounded-md px-1.5 py-0.5 text-xs font-semibold"
             style={{ background: markerColor }}
           >
             {decimal(bmi)}
@@ -51,8 +51,8 @@ export function BmiScale({ bmi, tone }: BmiScaleProps) {
                 style={{ width: `${widthOf(from, to)}%` }}
                 className={
                   band.label === 'Healthy'
-                    ? 'bg-hairline-strong rounded-full'
-                    : 'bg-grid rounded-full'
+                    ? 'bg-track-active rounded-full'
+                    : 'bg-track rounded-full'
                 }
               />
             )

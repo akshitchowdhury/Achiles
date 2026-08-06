@@ -103,7 +103,8 @@ export function WelcomePage() {
   const onGuestSubmit = form.handleSubmit(async (values) => {
     const parsed = guestSchema.parse(values)
     await signUp.mutateAsync(parsed)
-    navigate('/', { replace: true })
+    // Straight to step two — the measurements are in, the plan is what's left.
+    navigate('/select-plan', { replace: true })
   })
 
   const onResumeSubmit = async (event: React.FormEvent) => {
@@ -121,7 +122,7 @@ export function WelcomePage() {
         <Wordmark />
 
         <div className="max-w-md">
-          <h1 className="text-ink text-5xl leading-[1.05] font-semibold tracking-tight">
+          <h1 className="text-ink font-display text-5xl leading-[1.05] font-semibold tracking-tight">
             Train with
             <br />
             <span className="text-volt">evidence</span>, not
@@ -211,7 +212,7 @@ export function WelcomePage() {
                 onClick={() => setMode(value)}
                 className={
                   mode === value
-                    ? 'bg-volt text-plane rounded-lg py-2 text-sm font-semibold'
+                    ? 'bg-volt text-on-accent rounded-lg py-2 text-sm font-semibold'
                     : 'text-ink-dim hover:text-ink rounded-lg py-2 text-sm transition-colors'
                 }
               >

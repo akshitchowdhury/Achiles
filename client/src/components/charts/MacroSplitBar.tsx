@@ -2,7 +2,6 @@ import { useState } from 'react'
 import clsx from 'clsx'
 import { num } from '../../lib/format'
 import type { MacroTarget } from '../../lib/fitness'
-import { CHART } from './chartTheme'
 
 interface MacroSplitBarProps {
   target: MacroTarget
@@ -22,9 +21,12 @@ export function MacroSplitBar({ target }: MacroSplitBarProps) {
 
   const rows = (
     [
-      { key: 'protein', label: 'Protein', grams: target.protein, color: CHART.series[0] },
-      { key: 'carbs', label: 'Carbs', grams: target.carbs, color: CHART.series[1] },
-      { key: 'fat', label: 'Fat', grams: target.fat, color: CHART.series[2] },
+      // var() rather than the useChartTheme hook: these land in real inline
+      // `style` objects, where custom properties resolve normally — so the
+      // segments re-colour with the plan without a JS read.
+      { key: 'protein', label: 'Protein', grams: target.protein, color: 'var(--color-series-1)' },
+      { key: 'carbs', label: 'Carbs', grams: target.carbs, color: 'var(--color-series-2)' },
+      { key: 'fat', label: 'Fat', grams: target.fat, color: 'var(--color-series-3)' },
     ] as const
   ).map((row) => {
     const kcal = row.grams * KCAL_PER_G[row.key]

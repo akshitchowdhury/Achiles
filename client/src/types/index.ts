@@ -33,6 +33,34 @@ export interface UserDetails {
   
 }
 
+/**
+ * One row of GET /getPlans — matches trainingplan.TrainingPlan.
+ *
+ * `image_key` is the bare S3 object key; `image_url` is derived server-side from
+ * the bucket and is absent when the key is empty, hence optional.
+ */
+export interface TrainingPlan {
+  id: number
+  name: string
+  slug: string
+  description: string
+  image_key: string
+  image_url?: string
+}
+
+/**
+ * The five plans the client knows how to theme. The server is free to return
+ * others — `isPlanSlug` is what keeps an unknown slug from being treated as a
+ * theme.
+ */
+export const PLAN_SLUGS = ['spartan', 'greek-god', 'superhero', 'athlete', 'manga'] as const
+
+export type PlanSlug = (typeof PLAN_SLUGS)[number]
+
+export function isPlanSlug(value: unknown): value is PlanSlug {
+  return typeof value === 'string' && (PLAN_SLUGS as readonly string[]).includes(value)
+}
+
 /** GET /getBMI response. `Verict_user` is spelled that way server-side. */
 export interface BmiResponse {
   'Calculated BMI': number

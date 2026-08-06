@@ -5,16 +5,20 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 	auth "github.com/yourusername/goBackendSkeleton/internal/Auth"
+	trainingplan "github.com/yourusername/goBackendSkeleton/internal/TrainingPlan"
 	"github.com/yourusername/goBackendSkeleton/internal/config"
 	"github.com/yourusername/goBackendSkeleton/internal/db"
 	"github.com/yourusername/goBackendSkeleton/internal/db/connect"
+	"github.com/yourusername/goBackendSkeleton/internal/db/s3"
 	"github.com/yourusername/goBackendSkeleton/internal/server"
 )
 
@@ -23,6 +27,16 @@ func main() {
 	slog.SetDefault(logger)
 
 	connect.RunRedis()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// The upload list lives beside the plan catalogue so the objects seeded
+	// here and the image_key values /addPlans writes cannot drift apart.
+	if err := s3.SetUp(ctx, trainingplan.UploadMap()); err != nil {
+		fmt.Println("could nt run s3", err)
+		return
+	}
 	if err := run(logger); err != nil {
 		logger.Error("fatal", "error", err)
 		os.Exit(1)
@@ -63,7 +77,13 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
-	srv := server.New(cfg, pool, logger, rdb)
+	// Same reasoning for training_plans: /addPlans upserts ON CONFLICT (slug),
+	// which needs the table's UNIQUE (slug) to already exist.
+	if err := trainingplan.EnsureSchema(ctx, pool); err != nil {
+		return err
+	}
+
+	srv := server.New(cfg, pool, logger, rdb, ctx)
 
 	errCh := make(chan error, 1)
 	go func() {

@@ -32,7 +32,7 @@ export function CardHeader({ title, hint, action }: CardHeaderProps) {
   return (
     <header className="mb-4 flex items-start justify-between gap-4">
       <div>
-        <h2 className="text-ink text-sm font-semibold tracking-tight">{title}</h2>
+        <h2 className="text-ink font-display text-sm font-semibold tracking-tight">{title}</h2>
         {hint && <p className="text-ink-muted mt-0.5 text-xs">{hint}</p>}
       </div>
       {action}

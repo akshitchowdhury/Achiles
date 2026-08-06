@@ -1,6 +1,6 @@
 import { healthyWeightRange } from '../../lib/fitness'
 import { num } from '../../lib/format'
-import { CHART } from './chartTheme'
+import { useChartTheme } from './useChartTheme'
 
 interface WeightRangeMeterProps {
   weightKg: number
@@ -12,6 +12,7 @@ interface WeightRangeMeterProps {
  * 18.5–25 BMI window converted to kilograms for this height.
  */
 export function WeightRangeMeter({ weightKg, heightCm }: WeightRangeMeterProps) {
+  const chart = useChartTheme()
   const { min, max } = healthyWeightRange(heightCm)
 
   // Pad the scale so the marker never sits flush against an edge.
@@ -24,7 +25,7 @@ export function WeightRangeMeter({ weightKg, heightCm }: WeightRangeMeterProps) 
 
   const inRange = weightKg >= min && weightKg <= max
   const delta = inRange ? 0 : weightKg < min ? weightKg - min : weightKg - max
-  const markerColor = inRange ? CHART.status.good : CHART.status.serious
+  const markerColor = inRange ? chart.status.good : chart.status.serious
 
   return (
     <figure>
@@ -40,9 +41,9 @@ export function WeightRangeMeter({ weightKg, heightCm }: WeightRangeMeterProps) 
 
       <div className="relative mt-4">
         {/* Track, with the healthy window raised out of the base tone */}
-        <div className="bg-grid h-2.5 w-full rounded-full" />
+        <div className="bg-track h-2.5 w-full rounded-full" />
         <div
-          className="bg-hairline-strong absolute top-0 h-2.5 rounded-full"
+          className="bg-track-active absolute top-0 h-2.5 rounded-full"
           style={{ left: `${pct(min)}%`, width: `${pct(max) - pct(min)}%` }}
         />
 
