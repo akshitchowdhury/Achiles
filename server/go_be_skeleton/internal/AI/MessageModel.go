@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	ratelimiterservice "github.com/yourusername/goBackendSkeleton/internal/RateLimiterService"
 	user "github.com/yourusername/goBackendSkeleton/internal/User"
 	"github.com/yourusername/goBackendSkeleton/internal/config"
 	"github.com/yourusername/goBackendSkeleton/internal/db/connect"
@@ -150,5 +151,29 @@ WHERE u.id = $1`
 	}
 
 	// "Client request": clientRequest})
+}
+
+func TestRateLimit(w http.ResponseWriter, r *http.Request, cfgApi *ratelimiterservice.TokenBucket) {
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "wrong api call", http.StatusBadRequest)
+		return
+	}
+
+	success := cfgApi.TakeWithTimeoutMod(1, 1)
+
+	if !success {
+		fmt.Println(cfgApi.GetRemainingTokens())
+		http.Error(w, "Exceede req limit", http.StatusTooManyRequests)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]any{"message": "Responded succesfully",
+		"Token stats": cfgApi.GetRemainingTokens(),
+		// "Info":        c.API_KEY,
+		// "Payload":     payload,
+		"Response": "called succesfully",
+	})
 
 }

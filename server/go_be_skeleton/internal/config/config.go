@@ -10,19 +10,22 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
 	"time"
 
 	"github.com/joho/godotenv"
+	ratelimiterservice "github.com/yourusername/goBackendSkeleton/internal/RateLimiterService"
 )
 
 // Config is the root application configuration.
 type Config struct {
-	Env  string
-	HTTP HTTPConfig
-	DB   DBConfig
-	CORS CORSConfig
-	AI   AIConfig
-	AUTH AuthConfig
+	Env     string
+	HTTP    HTTPConfig
+	DB      DBConfig
+	CORS    CORSConfig
+	AI      AIConfig
+	AUTH    AuthConfig
+	RATELIM *ratelimiterservice.TokenBucket
 }
 
 // AuthConfig holds the Google OAuth client credentials plus everything the
@@ -92,6 +95,14 @@ type AIConfig struct {
 	API_KEY string
 }
 
+// type TokenBucket struct {
+// 	capacity   int        // Maximum number of tokens the bucket can hold
+// 	rate       int        // Number of tokens to add per second
+// 	tokens     int        // Current number of tokens in the bucket
+// 	lastRefill time.Time  // Timestamp of the last token refill
+// 	mutex      sync.Mutex // Mutex to protect concurrent access
+// }
+
 // Load reads a .env file if present (ignored silently if missing — real
 // deployments provide env vars directly) and builds a Config from the
 // environment, falling back to sensible defaults.
@@ -139,6 +150,8 @@ func Load() (*Config, error) {
 			SessionSecret: getEnv("SESSION_SECRET", ""),
 			SessionTTL:    getEnvDuration("SESSION_TTL", 24*time.Hour),
 			CookieSecure:  getEnvBool("SESSION_COOKIE_SECURE", false)},
+
+		RATELIM: ratelimiterservice.NewTokenBucket(7, 1),
 	}
 
 	if cfg.AUTH.SessionSecret == "" {
