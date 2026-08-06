@@ -48,8 +48,9 @@ type PlanAsset struct {
 var PlanAssets = []PlanAsset{
 	{Slug: "athlete", ImageKey: "athlete.jpg", LocalPath: `assets\athlete.jpg`},
 	{Slug: "manga", ImageKey: "manga.jpg", LocalPath: `assets\manga.jpg`},
-	{Slug: "greek-god", ImageKey: "greek_god.png", LocalPath: `assets\Greek-god-1.png`},
-	{Slug: "spartan", ImageKey: "spartan.jpg", LocalPath: `assets\spartan.jpg`},
+	{Slug: "greek-god", ImageKey: "greek_god.png", LocalPath: `assets\greek.jpg`},
+	// {Slug: "greek-god", ImageKey: "greek_god.png", LocalPath: `assets\Greek-god-2.png`},
+	{Slug: "spartan", ImageKey: "spartan.jpg", LocalPath: `assets\spartanTwo.jpg`},
 	{Slug: "superhero", ImageKey: "superhero.jpg", LocalPath: `assets\superhero.jpg`},
 }
 

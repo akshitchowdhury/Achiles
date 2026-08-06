@@ -18,6 +18,14 @@ const SWEEP_COOLDOWN_MS = 500
 /**
  * Drives the whole-screen theme preview behind the plan picker.
  *
+ * NOTE — since the picker became a drum, the only caller uses `previewNow`:
+ * the card facing you IS the applied theme, so there is nothing to gate. The
+ * `preview` / `revert` / `suppressed` path below is the hover-driven model and
+ * is currently unreachable. It is kept, rather than deleted, because it is the
+ * answer to a real problem the moment any picker previews on hover again — the
+ * gates are all tuned numbers, and re-deriving them from scratch is the
+ * expensive part.
+ *
  * The preview writes THE SAME attribute the committed theme uses
  * (`<html data-plan>`), so what you hover is byte-identical to what you get,
  * and reverting is one write of the committed value. No preview twin attribute,

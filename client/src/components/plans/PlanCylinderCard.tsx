@@ -61,8 +61,12 @@ interface PlanCylinderCardProps {
    *  the card shows its own palette chips instead. */
   showChips: boolean
   onSelect: () => void
-  onPreview: () => void
-  onRevert: () => void
+  /** Pointer-driven theme preview. Optional because the drum has no use for it:
+   *  there the card in front is already the applied theme, and previewing a
+   *  card turned 76° away from the camera would mean the screen and the barrel
+   *  disagreed about which plan you were looking at. */
+  onPreview?: () => void
+  onRevert?: () => void
   onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void
   registerRef: (node: HTMLButtonElement | null) => void
 }
@@ -182,7 +186,7 @@ export function PlanCylinderCard({
       onPointerMove={trackPointer}
       onPointerLeave={() => {
         resetPointer()
-        onRevert()
+        onRevert?.()
       }}
       onFocus={onPreview}
       onBlur={resetPointer}

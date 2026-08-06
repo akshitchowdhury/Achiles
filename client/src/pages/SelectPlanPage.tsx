@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
@@ -19,8 +19,8 @@ const HEADING_ID = 'plan-picker-heading'
  * Step two of onboarding: pick a training plan.
  *
  * This is not only a data choice — the plan decides the app's entire palette,
- * geometry, typography and layout from here on, so the screen previews the
- * theme live as you move across the cards.
+ * geometry, typography and layout from here on, so the screen wears the theme
+ * of whichever card the drum has turned to the front.
  *
  * It renders OUTSIDE AppShell on purpose: the picker must not sit inside a plan
  * shell it is in the middle of choosing.
@@ -38,6 +38,20 @@ export function SelectPlanPage() {
   // on the same tick.
   const [active, setActive] = useState<PlanSlug | null>(committed)
   const activePlan = plans?.find((plan) => plan.slug === active)
+
+  // The drum always has a card in front, so this screen ALWAYS leaves a
+  // previewed theme on <html>. Hand the document back to the store on the way
+  // out — after committing that is the plan just chosen, and after signing out
+  // it is nothing, which is what /welcome expects. Read at unmount rather than
+  // closing over `committed`, so it reflects whichever of the two happened.
+  useEffect(
+    () => () => {
+      const slug = useSession.getState().planSlug
+      if (slug == null) delete document.documentElement.dataset.plan
+      else document.documentElement.dataset.plan = slug
+    },
+    [],
+  )
 
   // Same guard AppShell applies — there is no plan to choose without a profile.
   if (userId == null) return <Navigate to="/welcome" replace />
@@ -74,9 +88,10 @@ export function SelectPlanPage() {
             Choose how you train
           </h1>
           <p className="text-ink-dim mt-3 text-sm">
-            Each plan brings its own programme — and its own look. Hover a card to
-            see it take over the screen; the one you pick stays with you across the
-            whole app. You can tell it apart at a glance, which is the point.
+            Each plan brings its own programme — and its own look. Spin the drum:
+            whichever card is facing you takes over the screen, and the one you
+            confirm stays with you across the whole app. You can tell it apart at a
+            glance, which is the point.
           </p>
         </div>
 

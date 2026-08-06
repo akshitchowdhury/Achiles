@@ -265,20 +265,10 @@
        3. Text inside .cyl-barrel would be torn at facet boundaries and
           resampled per facet. The barrel is image-only, permanently. */
 
-  /* Sibling dimming is CSS, not React state: sweeping a pointer across five
-     cards must not re-render anything.
-
-     Descendant combinators, not child ones — each card sits inside a snap/width
-     wrapper, so .cyl-item is a grandchild of .cyl-rail. With `>` these rules
-     silently never match and the dimming quietly does nothing. */
-  .cyl-rail:hover .cyl-item {
-    opacity: 0.5;
-  }
-  .cyl-rail .cyl-item:hover,
-  .cyl-rail .cyl-item:focus-within,
-  .cyl-rail .cyl-item[aria-checked='true'] {
-    opacity: 1;
-  }
+  /* Sibling dimming used to live here as a :hover rule on the rail. The drum
+     replaced it: which card matters is now a function of the scroll position,
+     not of where the pointer is, so the fade is computed from the barrel angle
+     in PlanDrum and CSS has no way to know it. */
 
   .cyl-item {
     position: relative;
@@ -430,6 +420,96 @@
     .cyl-facet {
       display: none;
     }
+  }
+
+  /* ── Plan picker: the drum ──────────────────────────────────────────────
+     A second barrel, an order of magnitude bigger than the one inside each
+     card: there fourteen facets carry one photo, here five whole cards ride the
+     surface and the SCROLL POSITION is the angle. Nothing is pinned and no
+     wheel is swallowed — the container is a real scroller, so flings, snap
+     points, the scrollbar and focus-into-view are all still the browser's.
+
+     The layering is not stylistic, it is forced:
+       - perspective must sit on the SCROLLER, because the vanishing point has
+         to stay nailed to the middle of the viewport while cards scroll past
+         it. Put it on the track and the camera scrolls along with the cards,
+         which is the one thing a drum must not do.
+       - preserve-3d must NOT sit on the scroller. overflow is a grouping
+         property and forces transform-style back to flat, which would collapse
+         the barrel into a sliding row. Hence the extra .drum-track element,
+         which inherits the scroller's perspective and extends its 3D context
+         to the slots. Same three-element shape as .cyl / .cyl-barrel /
+         .cyl-facet, and for exactly the same reason. */
+  .drum {
+    /* Both viewport axes, because the card is 31:44 — sizing on width alone
+       makes it taller than a laptop viewport at desktop widths. */
+    --drum-slot: clamp(168px, min(23vw, 26svh), 252px);
+    --drum-gap: clamp(0.75rem, 2.4vw, 1.75rem);
+  }
+
+  .drum-scroller {
+    position: relative; /* offsetParent for the slot measuring in useDrumScroll */
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* overflow-x forces overflow-y to a scrolling value, so anything outside
+       this box is clipped: the top padding is the front card's headroom for its
+       hover lift, not decoration. */
+    padding-block: 2.25rem 1.25rem;
+    perspective: calc(var(--drum-slot) * 5);
+    /* Slightly above centre — the eye reads a barrel from a little above. */
+    perspective-origin: 50% 46%;
+    scroll-snap-type: x mandatory;
+    /* A horizontal fling here must not trigger the browser's back gesture. */
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .drum-scroller::-webkit-scrollbar {
+    display: none;
+  }
+
+  .drum-track {
+    display: flex;
+    align-items: center;
+    gap: var(--drum-gap);
+    transform-style: preserve-3d;
+  }
+
+  /* Half a viewport of nothing at each end. Without it the first and last cards
+     can never reach the centre of the barrel, because scrollLeft cannot go
+     negative. Sized so slot 0's centre lands exactly on the vanishing point:
+     50% − half a card − the one gap that follows this pad. */
+  .drum-pad {
+    flex: 0 0 auto;
+    width: calc(50% - var(--drum-slot) / 2 - var(--drum-gap));
+    /* Not cosmetic. These are empty, so they are zero-height boxes, and a
+       zero-area rectangle adds nothing to the union that becomes the scrollable
+       overflow region — the trailing pad would be skipped entirely and the last
+       two cards could never reach the centre. Stretching gives it area. */
+    align-self: stretch;
+  }
+
+  /* The slot is the LAYOUT box: it is what the scroller measures, what snaps,
+     and what the pitch is read off. It is deliberately never transformed —
+     the barrel pulls the far cards inward, so transforming the slots would
+     shrink the scrollable width to the visible width and leave the drum with
+     no scroll range to take its angle from. It would render once and then be
+     frozen. preserve-3d here is what passes the scroller's perspective down to
+     the card inside; without it the card gets a 3D transform with no camera
+     and turns orthographically, like a folding screen. */
+  .drum-slot {
+    flex: 0 0 auto;
+    width: var(--drum-slot);
+    scroll-snap-align: center;
+    /* A flick must not fly past a card: this is a five-way decision, not a
+       feed. */
+    scroll-snap-stop: always;
+    transform-style: preserve-3d;
+  }
+
+  /* The moving part. Everything the drum animates lives here. */
+  .drum-card {
+    will-change: transform, opacity;
   }
 
   /* Faint diagonal hatch used behind hero panels for texture. Angle, gap and
