@@ -1,12 +1,30 @@
 @import "tailwindcss";
+@import "./theme/plan-themes.css";
+@import "./theme/plan-shells.css";
 
-/* Achiles design tokens.
-   The app deliberately commits to a single dark look — this is a training
-   surface, not a document reader. Chart series colors below were validated
-   for the dark surface (lightness band, chroma floor, CVD separation,
-   normal-vision floor, contrast); don't hand-tweak them in isolation. */
+/* Achiles design tokens — the BASE theme, and the fallback when no training
+   plan has been chosen.
+   Chart series colors below were validated for the dark surface (lightness
+   band, chroma floor, CVD separation, normal-vision floor, contrast); don't
+   hand-tweak them in isolation.
+
+   Every token here is re-pointed per training plan in theme/plan-themes.css,
+   so components must never hardcode a color, radius or font — reach for a
+   token or add one. A literal hex in a component is a plan that cannot be
+   themed. */
 @theme {
   --font-sans: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Headings. Base aliases the body face; serif/condensed plans override it. */
+  --font-display: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* The uppercase eyebrows, stat labels and nav tabs — the chrome voice.
+     Separate from --font-display because a plan's headline face is often the
+     wrong thing at 10px: Cormorant is beautiful at 48px and mush at 10px, and
+     Dela Gothic has no weight axis to lean on. Base aliases the body face. */
+  --font-label: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Tracking for the uppercase eyebrow labels. Plans push this much wider
+     (superhero's HUD) or tighter. */
+  --tracking-label: 0.06em;
 
   /* Surfaces */
   --color-plane: #0a0b0d;
@@ -25,6 +43,16 @@
   --color-volt: #c8f31d;
   --color-volt-hi: #d6fa45;
   --color-volt-lo: #9bbf12;
+
+  /* Text/icons sitting ON a volt or status fill. Distinct from --color-plane
+     even though they match here: on the light plan this is a pale value on a
+     dark accent, the exact inverse, so the two roles cannot share a token. */
+  --color-on-accent: #0a0b0d;
+
+  /* Focus ring and decorative ornament. Separate from volt so a plan whose
+     accent is too low-contrast for a ring can move just this one. */
+  --color-focus: #c8f31d;
+  --color-ornament: #c8f31d;
 
   /* Categorical chart series — fixed order, never cycled.
      Worst all-pairs CVD ΔE 11.0, normal-vision ΔE 25.4. */
@@ -48,11 +76,105 @@
   /* Chart chrome */
   --color-grid: #24272d;
   --color-axis: #333740;
+
+  /* Composites that used to be written inline as white- or black-alpha.
+     A dark base makes "white at 5%" read as a lift; the light plan needs the
+     opposite, so these are tokens rather than opacity modifiers. */
+  --color-hatch: rgb(255 255 255 / 0.03);
+  --color-scrim: rgb(0 0 0 / 0.7);
+  --color-surface-translucent: rgb(20 22 26 / 0.82);
+  --color-hover-wash: rgb(255 255 255 / 0.05);
+
+  /* Meter and slider tracks. */
+  --color-track: #24272d;
+  --color-track-active: rgb(255 255 255 / 0.14);
+
+  /* Accent and critical tints. Pre-composited rather than volt/15 so a plan
+     can tune the tint's weight independently of its accent hue. */
+  --color-accent-wash: rgb(200 243 29 / 0.15);
+  --color-accent-wash-soft: rgb(200 243 29 / 0.06);
+  --color-accent-edge: rgb(200 243 29 / 0.5);
+  --color-accent-edge-soft: rgb(200 243 29 / 0.25);
+  --color-critical-wash: rgb(208 59 59 / 0.12);
+  --color-critical-edge: rgb(208 59 59 / 0.4);
+
+  /* Corner geometry. Declared explicitly — matching Tailwind's own defaults —
+     so plan blocks have something to override. Overriding the scale reskins
+     all 24 rounded-* call sites; --radius-full is deliberately left alone. */
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+
+  /* Popover/tooltip elevation. */
+  --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.45);
+}
+
+/* Not a @theme token: color-scheme takes a keyword, not a color, so it would
+   never generate a utility. Plans set this to flip form controls and
+   scrollbars — the light plan is the only one that does. */
+:root {
+  --ui-color-scheme: dark;
+}
+
+/* Registering the tokens that differ between plans lets ONE transition on
+   :root interpolate them, instead of a color transition on every element that
+   consumes them. `inherits: true` is load-bearing: with `false`, descendants
+   would snap while :root animated.
+
+   Registrations are not layered, so this block must stay at top level. The
+   initial-value is only a type anchor — @theme's own :root declarations
+   override it. Firefox before 128 has no @property and swaps instantly, which
+   is acceptable degradation rather than a bug. */
+@property --color-plane { syntax: "<color>"; inherits: true; initial-value: #0a0b0d }
+@property --color-surface { syntax: "<color>"; inherits: true; initial-value: #14161a }
+@property --color-raised { syntax: "<color>"; inherits: true; initial-value: #1c1f25 }
+@property --color-hairline { syntax: "<color>"; inherits: true; initial-value: rgba(255, 255, 255, 0.08) }
+@property --color-hairline-strong { syntax: "<color>"; inherits: true; initial-value: rgba(255, 255, 255, 0.14) }
+@property --color-ink { syntax: "<color>"; inherits: true; initial-value: #f5f7f2 }
+@property --color-ink-dim { syntax: "<color>"; inherits: true; initial-value: #a8aeb8 }
+@property --color-ink-muted { syntax: "<color>"; inherits: true; initial-value: #8a9099 }
+@property --color-volt { syntax: "<color>"; inherits: true; initial-value: #c8f31d }
+@property --color-volt-hi { syntax: "<color>"; inherits: true; initial-value: #d6fa45 }
+@property --color-volt-lo { syntax: "<color>"; inherits: true; initial-value: #9bbf12 }
+@property --color-on-accent { syntax: "<color>"; inherits: true; initial-value: #0a0b0d }
+@property --color-focus { syntax: "<color>"; inherits: true; initial-value: #c8f31d }
+
+:root {
+  transition-property:
+    --color-plane, --color-surface, --color-raised, --color-hairline,
+    --color-hairline-strong, --color-ink, --color-ink-dim, --color-ink-muted,
+    --color-volt, --color-volt-hi, --color-volt-lo, --color-on-accent,
+    --color-focus;
+  transition-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+  /* Off by default — nothing outside the picker should pay for a permanently
+     transitioning :root. usePlanPreview sets data-plan-anim for the duration
+     of a swap and clears it after. */
+  transition-duration: 0ms;
+}
+
+:root[data-plan-anim] {
+  transition-duration: 260ms;
+}
+
+/* A transition reads its duration from the after-change style, so keying on
+   the incoming plan works. greek-god is the only light theme in the set and a
+   full-page dark-to-light swap needs longer to stop reading as a flash. */
+:root[data-plan-anim][data-plan="greek-god"] {
+  transition-duration: 340ms;
+}
+
+/* Shortened, not removed: a color crossfade is not vestibular motion, and an
+   instant swap between two high-contrast themes is the more hostile option. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-plan-anim] {
+    transition-duration: 120ms;
+  }
 }
 
 @layer base {
   html {
-    color-scheme: dark;
+    color-scheme: var(--ui-color-scheme, dark);
   }
 
   body {
@@ -61,12 +183,12 @@
 
   /* Keyboard focus stays visible everywhere; mouse clicks stay quiet. */
   :focus-visible {
-    @apply outline-volt outline-2 outline-offset-2;
+    @apply outline-focus outline-2 outline-offset-2;
   }
 
   ::selection {
     background: var(--color-volt);
-    color: var(--color-plane);
+    color: var(--color-on-accent);
   }
 }
 
@@ -130,14 +252,281 @@
     @apply border-hairline border-b px-3 py-2 align-top;
   }
 
-  /* Faint diagonal hatch used behind hero panels for texture. */
+  /* ── Plan picker: the cylindrical cards ─────────────────────────────────
+     A faceted barrel carries the photo; the text sits on a flat, un-rotated
+     plane in front of it. Non-linear compression is what sells a cylinder,
+     and compressing a photo is a feature — compressing 13px type is mush.
+
+     Three invariants here are invisible in review and break silently:
+       1. overflow / mask / filter / clip-path / opacity<1 are all GROUPING
+          properties. Setting any of them on .cyl-barrel (the preserve-3d
+          element) collapses the 3D context per spec, and the card pops flat
+          mid-hover. The rounded clip lives on .cyl, the dimming opacity on
+          .cyl-item, and nothing of the sort ever goes on .cyl-barrel.
+       2. .cyl-face must stay at translateZ(0). A translateZ inside a
+          perspective scales by 1/(1 - z/d) — a non-integer factor that
+          re-rasterizes type at fractional scale and kills subpixel AA.
+          Parallax is a plain 2D translate.
+       3. Text inside .cyl-barrel would be torn at facet boundaries and
+          resampled per facet. The barrel is image-only, permanently. */
+
+  /* Sibling dimming used to live here as a :hover rule on the rail. The drum
+     replaced it: which card matters is now a function of the scroll position,
+     not of where the pointer is, so the fade is computed from the barrel angle
+     in PlanDrum and CSS has no way to know it. */
+
+  .cyl-item {
+    position: relative;
+    display: block;
+    /* width:100% is NOT redundant with display:block here. This element is a
+       <button>, and form controls size to fit-content even when displayed as a
+       block. Every child of .cyl is absolutely positioned, so there is no
+       in-flow content to measure: the button collapses to zero width, .cyl's
+       w-full resolves to 0, and its aspect-ratio then yields zero height. The
+       card mounts, fetches its image, and is invisible. */
+    width: 100%;
+    text-align: left;
+    border-radius: 1.15rem;
+    transition: opacity 200ms ease-out;
+  }
+
+  /* The global :focus-visible rule already draws the ring, and it stays crisp
+     because .cyl-item is never rotated — an outline on a rotated box renders
+     as a fuzzy parallelogram whose thin edges fail 3:1. All this adds is a
+     halo in the plane colour so the ring survives a bright plan photo behind
+     it, which matters most on the light greek-god theme. */
+  .cyl-item:focus-visible {
+    box-shadow: 0 0 0 5px var(--color-plane);
+    outline-offset: 2px;
+  }
+
+  /* Wrapper: rounded clip plus the perspective. overflow is safe here because
+     this element is not the preserve-3d one. The perspective is per-card and
+     deliberately not shared across the row — a shared vanishing point would
+     skew the outer plans' images and bias a five-way choice. */
+  .cyl {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1rem;
+    isolation: isolate;
+    background: var(--color-raised);
+    perspective: 900px;
+    perspective-origin: 50% 45%;
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.06) inset,
+      0 18px 40px -18px rgb(0 0 0 / 0.7);
+  }
+
+  .cyl-barrel {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    /* Rotated facets hit-test as rotated quads, leaving gaps and overlaps at
+       the barrel edge that make the pointer flicker between cards — and with
+       it, the theme. The outer button is the sole hit target. */
+    pointer-events: none;
+  }
+
+  /* One facet = one vertical band of the image, placed as a chord of the
+     cylinder. Transform order matters: back to the axis at z=-R, spin, then
+     out along the new forward direction. --cyl-r, --facet-a and --facet-w are
+     set inline per facet; background-* is inline because cover has to be
+     computed against the BARREL box, not the 19px sliver. */
+  .cyl-facet {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: var(--facet-w);
+    margin-left: calc(var(--facet-w) / -2);
+    transform: translateZ(calc(var(--cyl-r) * -1px)) rotateY(calc(var(--facet-a) * 1deg))
+      translateZ(calc(var(--cyl-r) * 1px));
+    backface-visibility: hidden;
+    background-repeat: no-repeat;
+  }
+
+  /* The touch / reduced-motion path: one flat layer, where background-size:
+     cover is exactly right because the box IS the card. */
+  .cyl-flat {
+    position: absolute;
+    inset: 0;
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: 50% 35%;
+  }
+
+  /* Screen-space shading, flat and outside the 3D subtree on purpose: shading
+     from a fixed light IS a screen-space effect, so curving it would be wrong
+     as well as expensive.
+
+     Every colour here is a literal rgb(), never a token — that keeps the photo
+     layer out of the :root token crossfade's repaint. The photo does not
+     change between plans, so it should not repaint when the theme does. */
+  .cyl-shade {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      /* specular band — --spec (0..1) tracks pointer x. A highlight that
+         travels while the surface barely rotates is the strongest curvature
+         cue there is; a flat card cannot fake it. */
+      radial-gradient(
+        120% 100% at calc(var(--spec, 0.38) * 100%) 38%,
+        rgb(255 255 255 / 0.22),
+        rgb(255 255 255 / 0.07) 36%,
+        transparent 62%
+      ),
+      /* barrel falloff, asymmetric so the light reads as upper-left */
+      linear-gradient(
+        90deg,
+        rgb(0 0 0 / 0.58) 0%,
+        rgb(0 0 0 / 0.24) 11%,
+        transparent 40%,
+        transparent 60%,
+        rgb(0 0 0 / 0.3) 89%,
+        rgb(0 0 0 / 0.66) 100%
+      ),
+      /* elliptical top/bottom hint — the silhouette of a standing cylinder */
+      radial-gradient(150% 26px at 50% 0%, transparent 68%, rgb(0 0 0 / 0.45)),
+      radial-gradient(150% 26px at 50% 100%, transparent 68%, rgb(0 0 0 / 0.5)),
+      /* scrim: guarantees the text plane has contrast over any photo,
+         including a blown-out light one */
+      linear-gradient(to top, rgb(4 5 6 / 0.94) 0%, rgb(4 5 6 / 0.74) 26%, transparent 64%);
+    box-shadow:
+      inset -1px 0 0 rgb(255 255 255 / 0.13),
+      inset 1px 0 0 rgb(255 255 255 / 0.05);
+  }
+
+  /* A gradient's local contrast varies across the barrel; a flat scrim does
+     not. */
+  @media (prefers-contrast: more) {
+    .cyl-shade {
+      background: rgb(4 5 6 / 0.82);
+    }
+  }
+
+  .cyl-face {
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 1rem;
+    transform: translateZ(0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cyl-item,
+    .cyl-barrel,
+    .cyl-face {
+      transition: none !important;
+    }
+  }
+
+  /* Belt and braces if the JS branch is ever bypassed. */
+  @media (prefers-reduced-motion: reduce), (hover: none) {
+    .cyl-facet {
+      display: none;
+    }
+  }
+
+  /* ── Plan picker: the drum ──────────────────────────────────────────────
+     A second barrel, an order of magnitude bigger than the one inside each
+     card: there fourteen facets carry one photo, here five whole cards ride the
+     surface and the SCROLL POSITION is the angle. Nothing is pinned and no
+     wheel is swallowed — the container is a real scroller, so flings, snap
+     points, the scrollbar and focus-into-view are all still the browser's.
+
+     The layering is not stylistic, it is forced:
+       - perspective must sit on the SCROLLER, because the vanishing point has
+         to stay nailed to the middle of the viewport while cards scroll past
+         it. Put it on the track and the camera scrolls along with the cards,
+         which is the one thing a drum must not do.
+       - preserve-3d must NOT sit on the scroller. overflow is a grouping
+         property and forces transform-style back to flat, which would collapse
+         the barrel into a sliding row. Hence the extra .drum-track element,
+         which inherits the scroller's perspective and extends its 3D context
+         to the slots. Same three-element shape as .cyl / .cyl-barrel /
+         .cyl-facet, and for exactly the same reason. */
+  .drum {
+    /* Both viewport axes, because the card is 31:44 — sizing on width alone
+       makes it taller than a laptop viewport at desktop widths. */
+    --drum-slot: clamp(168px, min(23vw, 26svh), 252px);
+    --drum-gap: clamp(0.75rem, 2.4vw, 1.75rem);
+  }
+
+  .drum-scroller {
+    position: relative; /* offsetParent for the slot measuring in useDrumScroll */
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* overflow-x forces overflow-y to a scrolling value, so anything outside
+       this box is clipped: the top padding is the front card's headroom for its
+       hover lift, not decoration. */
+    padding-block: 2.25rem 1.25rem;
+    perspective: calc(var(--drum-slot) * 5);
+    /* Slightly above centre — the eye reads a barrel from a little above. */
+    perspective-origin: 50% 46%;
+    scroll-snap-type: x mandatory;
+    /* A horizontal fling here must not trigger the browser's back gesture. */
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .drum-scroller::-webkit-scrollbar {
+    display: none;
+  }
+
+  .drum-track {
+    display: flex;
+    align-items: center;
+    gap: var(--drum-gap);
+    transform-style: preserve-3d;
+  }
+
+  /* Half a viewport of nothing at each end. Without it the first and last cards
+     can never reach the centre of the barrel, because scrollLeft cannot go
+     negative. Sized so slot 0's centre lands exactly on the vanishing point:
+     50% − half a card − the one gap that follows this pad. */
+  .drum-pad {
+    flex: 0 0 auto;
+    width: calc(50% - var(--drum-slot) / 2 - var(--drum-gap));
+    /* Not cosmetic. These are empty, so they are zero-height boxes, and a
+       zero-area rectangle adds nothing to the union that becomes the scrollable
+       overflow region — the trailing pad would be skipped entirely and the last
+       two cards could never reach the centre. Stretching gives it area. */
+    align-self: stretch;
+  }
+
+  /* The slot is the LAYOUT box: it is what the scroller measures, what snaps,
+     and what the pitch is read off. It is deliberately never transformed —
+     the barrel pulls the far cards inward, so transforming the slots would
+     shrink the scrollable width to the visible width and leave the drum with
+     no scroll range to take its angle from. It would render once and then be
+     frozen. preserve-3d here is what passes the scroller's perspective down to
+     the card inside; without it the card gets a 3D transform with no camera
+     and turns orthographically, like a folding screen. */
+  .drum-slot {
+    flex: 0 0 auto;
+    width: var(--drum-slot);
+    scroll-snap-align: center;
+    /* A flick must not fly past a card: this is a five-way decision, not a
+       feed. */
+    scroll-snap-stop: always;
+    transform-style: preserve-3d;
+  }
+
+  /* The moving part. Everything the drum animates lives here. */
+  .drum-card {
+    will-change: transform, opacity;
+  }
+
+  /* Faint diagonal hatch used behind hero panels for texture. Angle, gap and
+     ink all come from custom properties so a plan can turn the same utility
+     into bronze rules, a blueprint grid or manga halftone. */
   .hatch {
     background-image: repeating-linear-gradient(
-      45deg,
-      rgba(255, 255, 255, 0.03) 0px,
-      rgba(255, 255, 255, 0.03) 1px,
+      var(--hatch-angle, 45deg),
+      var(--color-hatch) 0px,
+      var(--color-hatch) 1px,
       transparent 1px,
-      transparent 7px
+      transparent var(--hatch-gap, 7px)
     );
   }
 }

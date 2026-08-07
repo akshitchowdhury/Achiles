@@ -21,8 +21,8 @@ type Server struct {
 
 // New builds a Server ready to Start, wiring the router through the
 // standard middleware chain: recover -> logging -> CORS -> routes.
-func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger, rdb *redis.Client) *Server {
-	mux := newRouter(pool, cfg, rdb)
+func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger, rdb *redis.Client, ctx context.Context) *Server {
+	mux := newRouter(pool, cfg, rdb, ctx)
 
 	handler := middleware.Chain(mux,
 		middleware.Recover(logger),

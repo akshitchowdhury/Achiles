@@ -10,6 +10,43 @@
       content="Achiles — turn your measurements into a training and nutrition baseline you can act on."
     />
     <title>Achiles — Train with evidence</title>
+
+    <!--
+      Pre-paint theme bootstrap. Blocking on purpose: the chosen training plan
+      repaints the entire app, so React setting data-plan on mount would show a
+      frame of the wrong theme — and for the light Greek God plan that is a
+      full-page white/black flash, not a subtle shift.
+
+      The slug list and plane colours below duplicate theme/plan-themes.css and
+      theme/usePlanTheme.ts. That is accepted: this runs before any stylesheet
+      is parsed, so getComputedStyle has nothing to read yet. If you add a plan,
+      add it here too.
+
+      Anything unexpected — no entry, parse failure, unknown slug — leaves the
+      attribute off, and the base dark theme in index.css applies.
+    -->
+    <script>
+      ;(function () {
+        try {
+          var PLANES = {
+            spartan: '#17120d',
+            'greek-god': '#e9e3d3',
+            superhero: '#080d14',
+            athlete: '#101114',
+            manga: '#0B0B0F',
+          }
+          var raw = localStorage.getItem('achiles.session')
+          if (!raw) return
+          var slug = JSON.parse(raw).state.planSlug
+          if (!Object.prototype.hasOwnProperty.call(PLANES, slug)) return
+          document.documentElement.dataset.plan = slug
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) meta.setAttribute('content', PLANES[slug])
+        } catch (e) {
+          /* Storage blocked or malformed — the base theme is a fine fallback. */
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

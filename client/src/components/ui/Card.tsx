@@ -31,9 +31,13 @@ interface CardHeaderProps {
 export function CardHeader({ title, hint, action }: CardHeaderProps) {
   return (
     <header className="mb-4 flex items-start justify-between gap-4">
-      <div>
-        <h2 className="text-ink text-sm font-semibold tracking-tight">{title}</h2>
-        {hint && <p className="text-ink-muted mt-0.5 text-xs">{hint}</p>}
+      <div className="min-w-0">
+        {/* No font utilities — .plan-card-title owns family, size, weight and
+            case so each plan can set its own. The hint stays in the body face
+            deliberately: it is the line that explains what a figure means, and
+            it must stay readable in every theme. */}
+        <h2 className="plan-card-title text-ink">{title}</h2>
+        {hint && <p className="text-ink-muted font-sans mt-1 text-xs">{hint}</p>}
       </div>
       {action}
     </header>
