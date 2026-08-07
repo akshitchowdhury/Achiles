@@ -9,6 +9,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	trainingplan "github.com/yourusername/goBackendSkeleton/internal/TrainingPlan"
+	"github.com/yourusername/goBackendSkeleton/internal/db/s3"
 )
 
 func AddUser(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
@@ -156,14 +159,16 @@ func GetUserById(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Selected 6 columns
-	query := "SELECT id, name, age, weight, gender, height_cm FROM userinfo WHERE id = $1"
+	// Selected 6 columns, plus the plan the user has selected (if any)
+	query := "SELECT id, name, age, weight, gender, height_cm, training_plan_id FROM userinfo WHERE id = $1"
 	specs_query := "SELECT user_id, bmi_value, bmr_value, verdict, water_intake FROM user_specs WHERE user_id = $1"
 	var u User
 
 	var s Specs
 
-	// Scanned all 6 columns in the exact order as SELECT
+	var planId *int
+
+	// Scanned all 6 columns in the exact order as SELECT, plus training_plan_id
 	err = db.QueryRow(r.Context(), query, id).Scan(
 		&u.Id,
 		&u.Name, // Added missing field
@@ -171,6 +176,7 @@ func GetUserById(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 		&u.Weight,
 		&u.Gender,
 		&u.Height_cm,
+		&planId,
 	)
 
 	if err != nil {
@@ -203,15 +209,29 @@ func GetUserById(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	}
 
 	specArr := map[string]any{"BMI": s.U_Bmi.Bmi_value, "BMR": s.U_Bmr.Bmr_value, "Verdict": s.Verdict, "WaterIntake": s.U_water_intake}
+
+	userDetails := map[string]any{
+		"id":        u.Id, // Replace with your actual user fields
+		"name":      u.Name,
+		"weight":    u.Weight,
+		"age":       u.Age,
+		"gender":    u.Gender,
+		"height_cm": u.Height_cm,
+		"specs":     specArr, // <-- Nested here
+	}
+
+	// A user hasn't necessarily picked a plan yet, so this stays absent
+	// rather than null when training_plan_id is unset.
+	if planId != nil {
+		plan, planErr := trainingplan.GetPlanByID(r.Context(), db, *planId)
+		if planErr != nil && !errors.Is(planErr, pgx.ErrNoRows) {
+			fmt.Println("Plan lookup error:", planErr)
+		} else if planErr == nil {
+			plan.ResolveURLs(s3.Bucket)
+			userDetails["training_plan"] = plan
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
-		"userDetails": map[string]any{
-			"id":        u.Id, // Replace with your actual user fields
-			"name":      u.Name,
-			"weight":    u.Weight,
-			"age":       u.Age,
-			"gender":    u.Gender,
-			"height_cm": u.Height_cm,
-			"specs":     specArr, // <-- Nested here
-		}})
+	json.NewEncoder(w).Encode(map[string]any{"userDetails": userDetails})
 }

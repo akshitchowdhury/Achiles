@@ -1,12 +1,13 @@
 package user
 
 type User struct {
-	Id        int     `json:"id"`
-	Name      string  `json:"name"`
-	Age       int     `json:"age"`
-	Weight    float64 `json:"weight"`
-	Gender    string  `json:"gender"`
-	Height_cm float64 `json:"height_cm"`
+	Id              int     `json:"id"`
+	Name            string  `json:"name"`
+	Age             int     `json:"age"`
+	Weight          float64 `json:"weight"`
+	Gender          string  `json:"gender"`
+	Height_cm       float64 `json:"height_cm"`
+	TrainingPlanId  int     `json:"training_plan_id,omitempty"`
 	// User_specs Specs   `json:"user_specs,omitempty"`
 }
 

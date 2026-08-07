@@ -6,7 +6,7 @@ import { generatePlanDoc } from '../api/docs'
 import { authKeys, googleIdentity, useAuthSession } from './useAuth'
 import { saveBlob } from '../lib/download'
 import { useSession } from '../store/session'
-import type { NewUser } from '../types'
+import { isPlanSlug, type NewUser } from '../types'
 
 export const userKeys = {
   detail: (id: number) => ['user', id] as const,
@@ -79,6 +79,7 @@ export function useGuestSignUp() {
  */
 export function useResumeSession() {
   const signIn = useSession((s) => s.signIn)
+  const choosePlan = useSession((s) => s.choosePlan)
   const queryClient = useQueryClient()
   const { data: auth } = useAuthSession()
   const google = googleIdentity(auth)
@@ -104,6 +105,14 @@ export function useResumeSession() {
         email: google?.email,
         picture: google?.picture,
       })
+      // Resuming always starts from a null planSlug (a fresh device, or
+      // signOut having just cleared it), so an athlete who already picked a
+      // plan on the server needs it restored here — otherwise AppShell reads
+      // the still-null local value and bounces them back to /select-plan
+      // every time they log back in.
+      if (details.training_plan && isPlanSlug(details.training_plan.slug)) {
+        choosePlan(details.training_plan.slug)
+      }
       queryClient.setQueryData(userKeys.detail(details.id), details)
       queryClient.invalidateQueries({ queryKey: authKeys.session })
     },

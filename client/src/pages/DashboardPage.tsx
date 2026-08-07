@@ -12,6 +12,7 @@ import { MacroSplitBar } from '../components/charts/MacroSplitBar'
 import { WeightRangeMeter } from '../components/charts/WeightRangeMeter'
 import { apiErrorMessage } from '../api/client'
 import { useCurrentUser } from '../hooks/useUser'
+import { useDashboard } from '../hooks/useTrainingPlan'
 import { useSession } from '../store/session'
 import { motifFor } from '../theme/planMotif'
 import {
@@ -40,6 +41,7 @@ import { num, decimal } from '../lib/format'
  */
 export function DashboardPage() {
   const { data: user, isPending, isError, error, refetch } = useCurrentUser()
+  const { data: dashboard } = useDashboard(user?.id ?? null)
   const storedWeight = useSession((s) => s.weight)
   const planSlug = useSession((s) => s.planSlug)
   const { copy, icons } = motifFor(planSlug)
@@ -113,6 +115,87 @@ export function DashboardPage() {
           </Link>
         </div>
       </Card>
+
+      {/* Selected plan overview — the catalog entry plus whatever nutrition/
+          workout content has been authored for it. `dashboard === null` means
+          "no training_plan_id on the profile yet", which is a real, non-error
+          state: an athlete whose plan predates this column has one locally
+          (AppShell let them through on that) but not on the server. */}
+      {dashboard === null && (
+        <Card className="border-volt/25">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="plan-card-title text-ink">Sync your plan</p>
+              <p className="text-ink-dim mt-1 text-sm">
+                Your plan is set on this device but hasn&rsquo;t been saved to your profile yet.
+                Pick it again to sync it.
+              </p>
+            </div>
+            <Link
+              to="/select-plan"
+              className="bg-volt text-on-accent hover:bg-volt-hi inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-colors"
+            >
+              Choose your plan
+              <ArrowUpRight className="size-4" aria-hidden="true" />
+            </Link>
+          </div>
+        </Card>
+      )}
+
+      {dashboard && (
+        <Card>
+          <div className="flex flex-wrap items-start gap-5">
+            {dashboard.plan.image_url && (
+              <img
+                src={dashboard.plan.image_url}
+                alt=""
+                className="border-hairline h-28 w-20 shrink-0 rounded-xl border object-cover"
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <CardHeader title={dashboard.plan.name} hint={dashboard.plan.description} />
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-ink-muted tracking-label text-xs font-medium uppercase">
+                    Nutrition
+                  </p>
+                  {dashboard.nutrition ? (
+                    <p className="text-ink-dim mt-1 text-sm">
+                      {dashboard.nutrition.calorie_guidance || 'No calorie guidance yet.'}
+                      {' · '}
+                      {dashboard.nutrition.protein_pct}% protein / {dashboard.nutrition.carbs_pct}%
+                      carbs / {dashboard.nutrition.fats_pct}% fat
+                    </p>
+                  ) : (
+                    <p className="text-ink-muted mt-1 text-sm">Not authored yet.</p>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-ink-muted tracking-label text-xs font-medium uppercase">
+                    Workouts
+                  </p>
+                  {dashboard.workouts && dashboard.workouts.length > 0 ? (
+                    <ul className="text-ink-dim mt-1 space-y-1 text-sm">
+                      {dashboard.workouts.map((w) => (
+                        <li key={w.id}>
+                          {w.split_name}
+                          {w.exercises && w.exercises.length > 0 && (
+                            <span className="text-ink-muted"> · {w.exercises.length} exercises</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-ink-muted mt-1 text-sm">Not authored yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* KPI row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

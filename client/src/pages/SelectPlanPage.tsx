@@ -9,6 +9,7 @@ import { PlanPicker } from '../components/plans/PlanPicker'
 import { PlanWatermark } from '../components/plans/PlanWatermark'
 import { apiErrorMessage } from '../api/client'
 import { usePlans } from '../hooks/usePlans'
+import { useSelectPlan } from '../hooks/useTrainingPlan'
 import { PLAN_LAYOUTS } from '../theme/registry'
 import { useSession } from '../store/session'
 import type { PlanSlug } from '../types'
@@ -32,6 +33,7 @@ export function SelectPlanPage() {
   const navigate = useNavigate()
 
   const { data: plans, isPending, isError, error, refetch } = usePlans()
+  const selectPlan = useSelectPlan()
   const [selected, setSelected] = useState<PlanSlug | null>(committed)
   // What the document is currently themed as — hover preview included. Driven by
   // the picker rather than by `selected` so the watermark and the palette change
@@ -57,9 +59,19 @@ export function SelectPlanPage() {
   if (userId == null) return <Navigate to="/welcome" replace />
 
   function commit() {
-    if (selected == null) return
-    choosePlan(selected)
-    navigate('/', { replace: true })
+    if (selected == null || userId == null) return
+    const plan = plans?.find((p) => p.slug === selected)
+    if (plan == null) return
+
+    selectPlan.mutate(
+      { userId, trainingPlanId: plan.id },
+      {
+        onSuccess: () => {
+          choosePlan(selected)
+          navigate('/', { replace: true })
+        },
+      },
+    )
   }
 
   return (
@@ -135,11 +147,18 @@ export function SelectPlanPage() {
 
               <div className="border-hairline mt-6 flex flex-wrap items-center justify-between gap-4 border-t pt-6">
                 <p className="text-ink-muted max-w-sm text-xs">
-                  {selected
-                    ? PLAN_LAYOUTS[selected].tagline
-                    : 'Pick a plan to continue. You can change it later from your profile.'}
+                  {selectPlan.isError
+                    ? apiErrorMessage(selectPlan.error)
+                    : selected
+                      ? PLAN_LAYOUTS[selected].tagline
+                      : 'Pick a plan to continue. You can change it later from your profile.'}
                 </p>
-                <Button size="lg" onClick={commit} disabled={selected == null}>
+                <Button
+                  size="lg"
+                  onClick={commit}
+                  disabled={selected == null}
+                  loading={selectPlan.isPending}
+                >
                   {selected ? `Train as ${PLAN_LAYOUTS[selected].label}` : 'Choose a plan'}
                   <ArrowRight className="size-4" aria-hidden="true" />
                 </Button>
@@ -148,11 +167,9 @@ export function SelectPlanPage() {
           )}
         </div>
 
-        {/* Honest about a real limitation: the plan lives in this browser only,
-            because the users table has no column for it yet. */}
         <p className="text-ink-muted mt-8 text-xs">
-          Your plan is saved on this device. Clearing site data or signing in
-          elsewhere will bring you back here.
+          Your plan is saved to your profile, so it follows you to any device
+          you sign in from.
         </p>
       </main>
     </div>

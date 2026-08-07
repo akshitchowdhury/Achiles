@@ -157,3 +157,46 @@ func objectURL(bucket, key string) string {
 	}
 	return fmt.Sprintf("https://%s.s3.amazonaws.com/%s", bucket, url.PathEscape(key))
 }
+
+// NutritionTemplate is the basic nutrition guidance attached to a plan —
+// one per plan, authored once and shown to every user on that plan.
+type NutritionTemplate struct {
+	ID              int     `json:"id"`
+	TrainingPlanID  int     `json:"training_plan_id"`
+	CalorieGuidance string  `json:"calorie_guidance"`
+	ProteinPct      float64 `json:"protein_pct"`
+	CarbsPct        float64 `json:"carbs_pct"`
+	FatsPct         float64 `json:"fats_pct"`
+	MealFrequency   int     `json:"meal_frequency"`
+	Notes           string  `json:"notes,omitempty"`
+}
+
+// WorkoutTemplate is one training day (e.g. "Push Day") within a plan.
+type WorkoutTemplate struct {
+	ID             int                `json:"id"`
+	TrainingPlanID int                `json:"training_plan_id"`
+	SplitName      string             `json:"split_name"`
+	DayOrder       int                `json:"day_order"`
+	Notes          string             `json:"notes,omitempty"`
+	Exercises      []*WorkoutExercise `json:"exercises,omitempty"`
+}
+
+// WorkoutExercise is one movement within a WorkoutTemplate.
+type WorkoutExercise struct {
+	ID                int    `json:"id"`
+	WorkoutTemplateID int    `json:"workout_template_id"`
+	Name              string `json:"name"`
+	Sets              int    `json:"sets"`
+	Reps              string `json:"reps"`
+	RestSeconds       int    `json:"rest_seconds"`
+	ExerciseOrder     int    `json:"exercise_order"`
+}
+
+// Dashboard aggregates everything a user's dashboard needs once they've
+// selected a plan: the plan itself (with art resolved), its nutrition
+// template, and its workout templates with exercises nested in.
+type Dashboard struct {
+	Plan      TrainingPlan       `json:"plan"`
+	Nutrition *NutritionTemplate `json:"nutrition,omitempty"`
+	Workouts  []*WorkoutTemplate `json:"workouts,omitempty"`
+}

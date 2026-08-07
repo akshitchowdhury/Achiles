@@ -46,6 +46,11 @@ func newRouter(pool *pgxpool.Pool, cfg *config.Config, rdb *redis.Client, ctx co
 	mux.HandleFunc("/docgeneration", func(w http.ResponseWriter, r *http.Request) { docgeneration.ServeDocxHandler(w, r, rdb) })
 	mux.HandleFunc("/addPlans", func(w http.ResponseWriter, r *http.Request) { trainingplan.AddPlansHandler(db, w, r) })
 	mux.HandleFunc("/getPlans", func(w http.ResponseWriter, r *http.Request) { trainingplan.GetAllPlansHandler(db, w, r) })
+	mux.HandleFunc("/selectPlan", func(w http.ResponseWriter, r *http.Request) { trainingplan.SelectTrainingPlanHandler(db, w, r) })
+	mux.HandleFunc("/addNutritionTemplate", func(w http.ResponseWriter, r *http.Request) { trainingplan.AddNutritionTemplateHandler(db, w, r) })
+	mux.HandleFunc("/addWorkoutTemplate", func(w http.ResponseWriter, r *http.Request) { trainingplan.AddWorkoutTemplateHandler(db, w, r) })
+	mux.HandleFunc("/addWorkoutExercise", func(w http.ResponseWriter, r *http.Request) { trainingplan.AddWorkoutExerciseHandler(db, w, r) })
+	mux.HandleFunc("/getDashboard", func(w http.ResponseWriter, r *http.Request) { trainingplan.GetDashboardHandler(db, w, r) })
 
 	return mux
 }

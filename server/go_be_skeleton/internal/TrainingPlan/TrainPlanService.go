@@ -2,8 +2,10 @@ package trainingplan
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -31,12 +33,245 @@ func EnsureSchema(ctx context.Context, db *pgxpool.Pool) error {
 		ALTER TABLE training_plans
 		ADD COLUMN IF NOT EXISTS watermark_key TEXT NOT NULL DEFAULT ''`
 
-	for _, stmt := range []string{ddl, addWatermarkKey} {
+	// Nutrition/workout templates and the userinfo link are additive to the
+	// plan catalog above, so they're ensured in the same call rather than a
+	// second EnsureSchema that callers would have to remember to also invoke.
+	const nutritionTemplates = `
+		CREATE TABLE IF NOT EXISTS nutrition_templates (
+			id                BIGSERIAL PRIMARY KEY,
+			training_plan_id  INTEGER NOT NULL REFERENCES training_plans(id) ON DELETE CASCADE,
+			calorie_guidance  TEXT NOT NULL DEFAULT '',
+			protein_pct       DOUBLE PRECISION NOT NULL DEFAULT 0,
+			carbs_pct         DOUBLE PRECISION NOT NULL DEFAULT 0,
+			fats_pct          DOUBLE PRECISION NOT NULL DEFAULT 0,
+			meal_frequency    INTEGER NOT NULL DEFAULT 0,
+			notes             TEXT NOT NULL DEFAULT '',
+			UNIQUE (training_plan_id)
+		)`
+
+	const workoutTemplates = `
+		CREATE TABLE IF NOT EXISTS workout_templates (
+			id               BIGSERIAL PRIMARY KEY,
+			training_plan_id INTEGER NOT NULL REFERENCES training_plans(id) ON DELETE CASCADE,
+			split_name       TEXT NOT NULL,
+			day_order        INTEGER NOT NULL DEFAULT 1,
+			notes            TEXT NOT NULL DEFAULT ''
+		)`
+
+	const workoutExercises = `
+		CREATE TABLE IF NOT EXISTS workout_exercises (
+			id                   BIGSERIAL PRIMARY KEY,
+			workout_template_id  BIGINT NOT NULL REFERENCES workout_templates(id) ON DELETE CASCADE,
+			name                 TEXT NOT NULL,
+			sets                 INTEGER NOT NULL DEFAULT 0,
+			reps                 TEXT NOT NULL DEFAULT '',
+			rest_seconds         INTEGER NOT NULL DEFAULT 0,
+			exercise_order       INTEGER NOT NULL DEFAULT 1
+		)`
+
+	// userinfo is created out-of-band (see auth.EnsureSchema's note on the
+	// same tradeoff), but by this point training_plans is guaranteed to
+	// exist, so the FK is safe to add here.
+	const userPlanLink = `
+		ALTER TABLE userinfo ADD COLUMN IF NOT EXISTS training_plan_id INTEGER REFERENCES training_plans(id)`
+
+	for _, stmt := range []string{ddl, addWatermarkKey, nutritionTemplates, workoutTemplates, workoutExercises, userPlanLink} {
 		if _, err := db.Exec(ctx, stmt); err != nil {
 			return fmt.Errorf("trainingplan: ensure schema: %w", err)
 		}
 	}
 	return nil
+}
+
+// GetPlanByID returns pgx.ErrNoRows if no plan has that id.
+func GetPlanByID(ctx context.Context, db *pgxpool.Pool, id int) (*TrainingPlan, error) {
+	const query = `SELECT ` + plan_details + ` FROM training_plans WHERE id = $1`
+
+	var p TrainingPlan
+	if err := db.QueryRow(ctx, query, id).Scan(&p.ID, &p.Name, &p.Slug, &p.Description, &p.ImageKey, &p.WatermarkKey); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// AssignPlanToUser sets which plan a user has selected. Returns
+// pgx.ErrNoRows if the user doesn't exist.
+func AssignPlanToUser(ctx context.Context, db *pgxpool.Pool, userID, planID int) error {
+	const query = `UPDATE userinfo SET training_plan_id = $2 WHERE id = $1`
+
+	tag, err := db.Exec(ctx, query, userID, planID)
+	if err != nil {
+		return fmt.Errorf("trainingplan: assign plan: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+// GetUserTrainingPlanID returns the plan id a user has selected, or 0 if
+// they haven't picked one yet. Returns pgx.ErrNoRows if the user doesn't
+// exist.
+func GetUserTrainingPlanID(ctx context.Context, db *pgxpool.Pool, userID int) (int, error) {
+	const query = `SELECT training_plan_id FROM userinfo WHERE id = $1`
+
+	var planID *int
+	if err := db.QueryRow(ctx, query, userID).Scan(&planID); err != nil {
+		return 0, err
+	}
+	if planID == nil {
+		return 0, nil
+	}
+	return *planID, nil
+}
+
+// CreateNutritionTemplate inserts the (single) nutrition template for a plan.
+func CreateNutritionTemplate(ctx context.Context, db *pgxpool.Pool, n *NutritionTemplate) error {
+	const query = `
+		INSERT INTO nutrition_templates
+			(training_plan_id, calorie_guidance, protein_pct, carbs_pct, fats_pct, meal_frequency, notes)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id`
+
+	err := db.QueryRow(ctx, query,
+		n.TrainingPlanID, n.CalorieGuidance, n.ProteinPct, n.CarbsPct, n.FatsPct, n.MealFrequency, n.Notes,
+	).Scan(&n.ID)
+	if err != nil {
+		return fmt.Errorf("trainingplan: create nutrition template: %w", err)
+	}
+	return nil
+}
+
+// GetNutritionTemplateByPlan returns pgx.ErrNoRows if the plan has none yet.
+func GetNutritionTemplateByPlan(ctx context.Context, db *pgxpool.Pool, planID int) (*NutritionTemplate, error) {
+	const query = `
+		SELECT id, training_plan_id, calorie_guidance, protein_pct, carbs_pct, fats_pct, meal_frequency, notes
+		FROM nutrition_templates WHERE training_plan_id = $1`
+
+	n := &NutritionTemplate{}
+	err := db.QueryRow(ctx, query, planID).Scan(
+		&n.ID, &n.TrainingPlanID, &n.CalorieGuidance, &n.ProteinPct, &n.CarbsPct, &n.FatsPct, &n.MealFrequency, &n.Notes,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return n, nil
+}
+
+// CreateWorkoutTemplate inserts one training day for a plan.
+func CreateWorkoutTemplate(ctx context.Context, db *pgxpool.Pool, wt *WorkoutTemplate) error {
+	const query = `
+		INSERT INTO workout_templates (training_plan_id, split_name, day_order, notes)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id`
+
+	if err := db.QueryRow(ctx, query, wt.TrainingPlanID, wt.SplitName, wt.DayOrder, wt.Notes).Scan(&wt.ID); err != nil {
+		return fmt.Errorf("trainingplan: create workout template: %w", err)
+	}
+	return nil
+}
+
+// AddExercise appends one movement to a workout template.
+func AddExercise(ctx context.Context, db *pgxpool.Pool, e *WorkoutExercise) error {
+	const query = `
+		INSERT INTO workout_exercises (workout_template_id, name, sets, reps, rest_seconds, exercise_order)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id`
+
+	err := db.QueryRow(ctx, query,
+		e.WorkoutTemplateID, e.Name, e.Sets, e.Reps, e.RestSeconds, e.ExerciseOrder,
+	).Scan(&e.ID)
+	if err != nil {
+		return fmt.Errorf("trainingplan: add exercise: %w", err)
+	}
+	return nil
+}
+
+// GetWorkoutTemplatesByPlan returns every training day for a plan, in day
+// order, each with its exercises nested in.
+func GetWorkoutTemplatesByPlan(ctx context.Context, db *pgxpool.Pool, planID int) ([]*WorkoutTemplate, error) {
+	const query = `
+		SELECT id, training_plan_id, split_name, day_order, notes
+		FROM workout_templates WHERE training_plan_id = $1 ORDER BY day_order`
+
+	rows, err := db.Query(ctx, query, planID)
+	if err != nil {
+		return nil, fmt.Errorf("trainingplan: list workout templates: %w", err)
+	}
+	defer rows.Close()
+
+	templates := []*WorkoutTemplate{}
+	for rows.Next() {
+		wt := &WorkoutTemplate{}
+		if err := rows.Scan(&wt.ID, &wt.TrainingPlanID, &wt.SplitName, &wt.DayOrder, &wt.Notes); err != nil {
+			return nil, fmt.Errorf("trainingplan: scan workout template: %w", err)
+		}
+		templates = append(templates, wt)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for _, wt := range templates {
+		exercises, err := getExercisesByTemplate(ctx, db, wt.ID)
+		if err != nil {
+			return nil, err
+		}
+		wt.Exercises = exercises
+	}
+	return templates, nil
+}
+
+func getExercisesByTemplate(ctx context.Context, db *pgxpool.Pool, templateID int) ([]*WorkoutExercise, error) {
+	const query = `
+		SELECT id, workout_template_id, name, sets, reps, rest_seconds, exercise_order
+		FROM workout_exercises WHERE workout_template_id = $1 ORDER BY exercise_order`
+
+	rows, err := db.Query(ctx, query, templateID)
+	if err != nil {
+		return nil, fmt.Errorf("trainingplan: list exercises: %w", err)
+	}
+	defer rows.Close()
+
+	exercises := []*WorkoutExercise{}
+	for rows.Next() {
+		e := &WorkoutExercise{}
+		if err := rows.Scan(&e.ID, &e.WorkoutTemplateID, &e.Name, &e.Sets, &e.Reps, &e.RestSeconds, &e.ExerciseOrder); err != nil {
+			return nil, fmt.Errorf("trainingplan: scan exercise: %w", err)
+		}
+		exercises = append(exercises, e)
+	}
+	return exercises, rows.Err()
+}
+
+// BuildDashboard assembles everything a user's dashboard needs for the plan
+// they've selected: the plan, its nutrition template (nil if none has been
+// authored yet), and its workout templates with exercises.
+func BuildDashboard(ctx context.Context, db *pgxpool.Pool, planID int) (*Dashboard, error) {
+	plan, err := GetPlanByID(ctx, db, planID)
+	if err != nil {
+		return nil, err
+	}
+
+	dash := &Dashboard{Plan: *plan}
+
+	nutrition, err := GetNutritionTemplateByPlan(ctx, db, planID)
+	switch {
+	case err == nil:
+		dash.Nutrition = nutrition
+	case errors.Is(err, pgx.ErrNoRows):
+		// No nutrition template authored yet — leave it nil.
+	default:
+		return nil, err
+	}
+
+	workouts, err := GetWorkoutTemplatesByPlan(ctx, db, planID)
+	if err != nil {
+		return nil, err
+	}
+	dash.Workouts = workouts
+
+	return dash, nil
 }
 
 // addPlansQuery upserts the whole batch in one statement. unnest turns the
