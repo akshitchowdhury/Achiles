@@ -72,3 +72,64 @@ export function useDecodedImage(url: string | undefined): DecodedImage {
 
   return state
 }
+
+/**
+ * True once every URL in the batch has loaded — or failed — at least once.
+ *
+ * Built for gating a skeleton over a group of cards: without it, each card
+ * resolves its own useDecodedImage on its own schedule, so the picker paints
+ * photos in one at a time while the skeleton has already been swapped out
+ * from under them. Settling on error as well as success matters for the same
+ * reason useDecodedImage does — a 403 or an expired presigned URL should
+ * reveal that card's fallback gradient, not hold every OTHER card's skeleton
+ * up forever.
+ *
+ * Deliberately its own image loads rather than reusing useDecodedImage's
+ * state: by the time this resolves, the browser's HTTP cache already holds
+ * the bytes, so the same URL requested again inside each card resolves
+ * without a second round trip.
+ */
+export function useImagesSettled(urls: Array<string | undefined>): boolean {
+  // Reduced to a string so the effect keys on CONTENT, not the array's
+  // identity — callers pass a freshly-mapped array on every render.
+  const key = urls.filter((url): url is string => Boolean(url)).join('\n')
+  const [settled, setSettled] = useState(key.length === 0)
+
+  useEffect(() => {
+    const list = key ? key.split('\n') : []
+    if (list.length === 0) {
+      setSettled(true)
+      return
+    }
+
+    setSettled(false)
+    let live = true
+    let pending = list.length
+
+    const settleOne = () => {
+      pending -= 1
+      if (live && pending <= 0) setSettled(true)
+    }
+
+    const images = list.map((url) => {
+      const img = new Image()
+      img.onload = () => {
+        if (typeof img.decode === 'function') img.decode().then(settleOne, settleOne)
+        else settleOne()
+      }
+      img.onerror = settleOne
+      img.src = url
+      return img
+    })
+
+    return () => {
+      live = false
+      images.forEach((img) => {
+        img.onload = null
+        img.onerror = null
+      })
+    }
+  }, [key])
+
+  return settled
+}

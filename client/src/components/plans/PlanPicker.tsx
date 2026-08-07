@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { motion, useReducedMotion } from 'motion/react'
 import { PlanDrum, type DrumEntry } from './PlanDrum'
+import { PlanDrumSkeleton } from './PlanDrumSkeleton'
+import { useImagesSettled } from '../../hooks/useDecodedImage'
 import { usePlanPreview } from '../../hooks/usePlanPreview'
 import { isPlanSlug, type PlanSlug, type TrainingPlan } from '../../types'
 
@@ -54,6 +57,12 @@ export function PlanPicker({
     [plans],
   )
 
+  // Gate the drum on its cards' own photos, not just the catalogue fetch —
+  // otherwise five cover images pop in one at a time as each card's own
+  // useDecodedImage resolves, right as the barrel is trying to look solid.
+  const imagesReady = useImagesSettled(entries.map((entry) => entry.plan.image_url))
+  const reduce = useReducedMotion()
+
   // Read once: the drum owns its position from then on, and re-deriving this
   // from `selected` would yank the barrel back mid-spin.
   const opening = useRef(-1)
@@ -91,12 +100,22 @@ export function PlanPicker({
 
   return (
     <>
-      <PlanDrum
-        entries={entries}
-        initialIndex={opening.current}
-        onFront={onFront}
-        labelledBy={labelledBy}
-      />
+      {imagesReady ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: reduce ? 0 : 0.32, ease: [0.2, 0.8, 0.2, 1] }}
+        >
+          <PlanDrum
+            entries={entries}
+            initialIndex={opening.current}
+            onFront={onFront}
+            labelledBy={labelledBy}
+          />
+        </motion.div>
+      ) : (
+        <PlanDrumSkeleton count={entries.length} />
+      )}
 
       {/* Selection speaks. The drum settles before this fires, so spinning
           through three cards announces the one you stopped on, not all three. */}

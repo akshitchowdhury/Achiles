@@ -72,12 +72,12 @@ var PlanAssets = []PlanAsset{
 	{
 		Slug:     "athlete",
 		ImageKey: "athlete.jpg", LocalPath: `assets\athleteThumbnail.png`,
-		WatermarkKey: "athlete_watermark.jpg", WatermarkPath: `assets\athleteWatermark.jpg`,
+		WatermarkKey: "athlete_watermark.jpg", WatermarkPath: `assets\athleteWatermark.png`,
 	},
 	{
 		Slug:     "manga",
 		ImageKey: "manga.jpg", LocalPath: `assets\mangaThumbnail.png`,
-		WatermarkKey: "manga_watermark.jpg", WatermarkPath: `assets\mangaWatermark.jpg`,
+		WatermarkKey: "manga_watermark.jpg", WatermarkPath: `assets\mangaWatermark.png`,
 	},
 	{
 		// Was assets\greek.jpg, which no longer exists on disk. s3.SetUp
@@ -86,7 +86,7 @@ var PlanAssets = []PlanAsset{
 		// the whole API, not a missing picture.
 		Slug:     "greek-god",
 		ImageKey: "greek_god.png", LocalPath: `assets\greekThumbnail.png`,
-		WatermarkKey: "greek_god_watermark.jpg", WatermarkPath: `assets\greekWatermark.jpg`,
+		WatermarkKey: "greek_god_watermark.jpg", WatermarkPath: `assets\greekWatermark.png`,
 	},
 	{
 		Slug:     "spartan",
