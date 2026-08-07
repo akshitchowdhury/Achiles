@@ -104,7 +104,7 @@ export const PLAN_LAYOUTS: Record<PlanSlug, PlanLayout> = {
     motion: 'glitch',
     scheme: 'dark',
     label: 'Manga',
-    tagline: 'Training as an arc. Ink panels, cursed energy, one frame at a time.',
+    tagline: 'Training as an awakening. Cursed energy, moonlit steel, one seal at a time.',
   },
 }
 

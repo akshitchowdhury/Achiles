@@ -19,8 +19,12 @@ interface PlanWatermarkProps {
  * that alone reads as "did anything happen?" — a silhouette swapping behind the
  * content does not.
  *
- * Deliberately built out of the same decoded bitmap the cards use, so hovering a
- * card costs no extra request: useDecodedImage hits the browser cache.
+ * Prefers the plan's dedicated watermark art and falls back to its cover. The
+ * two are different pictures on purpose: the cover is a portrait crop that has
+ * to read at 248px on a card, and stretching that across a 1920px viewport was
+ * the reason this layer needed so much blur to look deliberate. Rows written
+ * before the server grew a watermark_key have none, so the fallback is a
+ * normal state rather than an error path.
  *
  * Reduced motion keeps the image and drops the crossfade — this is a background
  * texture, not movement, and a hard cut between two full-bleed images is the
@@ -28,7 +32,11 @@ interface PlanWatermarkProps {
  */
 export function PlanWatermark({ plan, slug, intensity = 'ambient' }: PlanWatermarkProps) {
   const reduce = useReducedMotion()
-  const image = useDecodedImage(plan?.image_url)
+  // Falling back inside the hook rather than after it: passing the cover URL
+  // straight through means one request either way, and the `failed` path still
+  // lands on the plan's gradient.
+  const backdrop = plan?.watermark_url || plan?.image_url
+  const image = useDecodedImage(backdrop)
   const visual = slug ? visualFor(slug) : null
 
   // No slug means no plan chosen yet — the base theme should look untouched.
@@ -36,6 +44,11 @@ export function PlanWatermark({ plan, slug, intensity = 'ambient' }: PlanWaterma
 
   const hero = intensity === 'hero'
   const src = image.src ?? null
+  // Watermark art is authored at full-bleed size; a cover is not. The blur is
+  // hiding an upscale in the fallback case only, so it comes almost all the way
+  // off when the real backdrop loaded.
+  const dedicated = src != null && plan?.watermark_url != null && src === plan.watermark_url
+  const blurPx = dedicated ? (hero ? 0 : 1) : hero ? 2 : 3
 
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -62,13 +75,12 @@ export function PlanWatermark({ plan, slug, intensity = 'ambient' }: PlanWaterma
               // column on the left in every shell.
               backgroundPosition: hero ? '75% 28%' : '68% 22%',
               backgroundRepeat: 'no-repeat',
-              // The blur is doing two jobs. It reads as depth of field, which is
-              // what a background silhouette should look like — and it hides
-              // upscaling artifacts, which matters because the plan images are
-              // sized for a 248px card and this stretches them across the whole
-              // viewport (the narrowest source is 399px wide, a ~4.8x upscale).
-              // Raise the source resolution and this can come down, not out.
-              filter: `grayscale(${hero ? 0.45 : 0.7}) contrast(1.12) brightness(${hero ? 0.72 : 0.55}) blur(${hero ? 2 : 3}px)`,
+              // The blur was doing two jobs: depth of field, which is what a
+              // background silhouette should look like, and hiding the ~4.8x
+              // upscale of a card-sized cover. Dedicated watermark art removes
+              // the second job, so `blurPx` above drops to 0–1 and the artwork
+              // is actually legible instead of being a coloured haze.
+              filter: `grayscale(${hero ? 0.45 : 0.7}) contrast(1.12) brightness(${hero ? 0.72 : 0.55}) blur(${blurPx}px)`,
               // Blur samples transparent pixels past the edges, which would show
               // as a soft vignette; scaling up slightly pushes that out of frame.
               transform: 'scale(1.04)',

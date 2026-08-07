@@ -40,7 +40,7 @@ export function BroadcastShell({ children }: ShellProps) {
       <header className="border-hairline-strong bg-plane sticky top-0 z-30 flex h-16 items-center border-b">
         <div className="flex h-full shrink-0 items-center gap-2 px-4">
           <Logo className="text-volt size-5" />
-          <span className="text-ink tracking-label hidden text-sm font-bold uppercase sm:block">
+          <span className="text-ink font-label tracking-label hidden text-sm font-bold uppercase sm:block">
             Achiles
           </span>
         </div>

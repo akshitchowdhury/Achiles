@@ -63,7 +63,7 @@ export function StoaShell({ children }: ShellProps) {
           <div className="lg:hidden">
             <Logo className="text-volt size-5" />
           </div>
-          <p className="text-ink-dim tracking-label font-display text-xs font-semibold uppercase">
+          <p className="text-ink-dim tracking-label font-label text-xs font-semibold uppercase">
             Achiles · Spartan
           </p>
           <div className="plan-meander hidden flex-1 sm:block" aria-hidden="true" />

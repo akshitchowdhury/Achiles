@@ -1,6 +1,7 @@
-import { Crown, Flame, Shield, Swords, Zap } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { Crown, Shield, Swords, Zap } from 'lucide-react'
+import { CursedSeal } from '../icons/AnimeGlyphs'
 import type { PlanSlug } from '../../types'
+import type { MotifIcon } from '../../theme/planMotif'
 
 /**
  * What a card shows when there is no photo.
@@ -20,8 +21,9 @@ import type { PlanSlug } from '../../types'
 export interface PlanVisual {
   /** Painted on the facets in place of the photo. */
   gradient: string
-  /** Shown on the flat content plane, so it is never warped. */
-  crest: LucideIcon
+  /** Shown on the flat content plane, so it is never warped. Widened from
+   *  LucideIcon because manga's crest is a hand-drawn seal — see planMotif. */
+  crest: MotifIcon
   /** Palette chips, shown when the sweep circuit-breaker suppresses previews. */
   chips: [string, string, string]
 }
@@ -53,9 +55,9 @@ export const PLAN_VISUALS: Record<PlanSlug, PlanVisual> = {
   },
   manga: {
     gradient:
-      'radial-gradient(120% 90% at 50% 0%, #2a2a2d 0%, #17171a 45%, #0c0c0d 100%), linear-gradient(148deg, rgba(91,42,134,0.62) 0%, transparent 56%), linear-gradient(300deg, rgba(139,0,0,0.5) 0%, transparent 50%)',
-    crest: Flame,
-    chips: ['#45d5e8', '#5b2a86', '#8b0000'],
+      'radial-gradient(120% 90% at 50% 0%, #2A2C35 0%, #17181D 45%, #0B0B0F 100%), linear-gradient(148deg, rgba(108,60,240,0.6) 0%, transparent 58%), linear-gradient(300deg, rgba(58,125,255,0.4) 0%, transparent 52%)',
+    crest: CursedSeal,
+    chips: ['#A98BFF', '#3A7DFF', '#FF6A00'],
   },
 }
 

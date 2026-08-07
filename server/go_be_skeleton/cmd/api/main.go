@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -28,15 +27,30 @@ func main() {
 
 	connect.RunRedis()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Sized for the WORK, not for a round trip. This pushes the whole art set
+	// on a cold bucket — currently ~10MB across ten objects — and the previous
+	// 10s budget was a single deadline shared by all of them, so a normal home
+	// upstream link could not finish in time and every boot died with
+	// "context deadline exceeded". SetUp skips objects already in the bucket,
+	// so a warm restart returns in well under a second and never comes near
+	// this ceiling.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	// The upload list lives beside the plan catalogue so the objects seeded
 	// here and the image_key values /addPlans writes cannot drift apart.
+	//
+	// A seeding failure is logged and stepped over rather than fatal. It used
+	// to `return`, which meant a slow upload of a background image took the
+	// entire API offline — no auth, no plans, no dashboard — over decoration
+	// that the client already degrades gracefully without: a missing key
+	// resolves to an empty URL, and PlanWatermark falls back to the cover and
+	// then to its gradient.
 	if err := s3.SetUp(ctx, trainingplan.UploadMap()); err != nil {
-		fmt.Println("could nt run s3", err)
-		return
+		logger.Error("s3: seeding failed, starting anyway — plan art may be missing",
+			"error", err)
 	}
+
 	if err := run(logger); err != nil {
 		logger.Error("fatal", "error", err)
 		os.Exit(1)

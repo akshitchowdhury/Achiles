@@ -9,16 +9,27 @@ import (
 
 // TrainingPlan is one row of training_plans.
 //
-// ImageKey is the column — a bare S3 object key such as "spartan.jpg".
-// ImageURL is derived from it for the client and never scanned, hence db:"-";
-// omitempty keeps it out of payloads where it means nothing.
+// Two pieces of art per plan, and they are not interchangeable:
+//
+//	ImageKey     the COVER — a portrait crop that has to read at 248px on the
+//	             picker's cylinder cards and as the card thumbnail.
+//	WatermarkKey the BACKDROP — full-bleed art the app blows up across the
+//	             viewport behind every screen. A cover upscaled to that size is
+//	             a blurry mess, which is why it is a separate object rather
+//	             than the same key at a different opacity.
+//
+// Both are bare S3 object keys such as "spartan.jpg". The *URL fields are
+// derived from them for the client and never scanned, hence db:"-"; omitempty
+// keeps them out of payloads where they mean nothing.
 type TrainingPlan struct {
-	ID          int    `json:"id"          db:"id"`
-	Name        string `json:"name"        db:"name"`
-	Slug        string `json:"slug"        db:"slug"`
-	Description string `json:"description" db:"description"`
-	ImageKey    string `json:"image_key"   db:"image_key"`
-	ImageURL    string `json:"image_url,omitempty" db:"-"`
+	ID           int    `json:"id"            db:"id"`
+	Name         string `json:"name"          db:"name"`
+	Slug         string `json:"slug"          db:"slug"`
+	Description  string `json:"description"   db:"description"`
+	ImageKey     string `json:"image_key"     db:"image_key"`
+	WatermarkKey string `json:"watermark_key" db:"watermark_key"`
+	ImageURL     string `json:"image_url,omitempty"     db:"-"`
+	WatermarkURL string `json:"watermark_url,omitempty" db:"-"`
 }
 
 // PlanDetails is the half of a plan that arrives in the request body. The
@@ -30,49 +41,92 @@ type PlanDetails struct {
 	Description string `json:"description"`
 }
 
-// PlanAsset ties a plan's slug to the S3 object illustrating it and to the
-// local file that object is seeded from.
+// PlanAsset ties a plan's slug to the two S3 objects illustrating it and to
+// the local files those objects are seeded from.
 //
-// LocalPath is a path on the server's disk, not something a browser can fetch;
-// the client-facing URL is built from the bucket plus ImageKey by
-// ResolveImageURL.
+// The *Path fields are paths on the server's disk, not something a browser can
+// fetch; the client-facing URLs are built from the bucket plus the keys by
+// ResolveURLs.
 type PlanAsset struct {
-	Slug      string
+	Slug string
+
+	// Cover art, shown on the picker cards.
 	ImageKey  string
 	LocalPath string
+
+	// Full-bleed backdrop, faded in behind the app. A plan with no watermark
+	// is legal: both fields empty means the client falls back to the cover,
+	// which is what it did before these existed.
+	WatermarkKey  string
+	WatermarkPath string
 }
 
-// PlanAssets is the canonical cover-image table. main.go seeds S3 from it and
-// AddPlans reads image keys out of it, so an upload and an insert cannot
-// disagree about what a plan's image is called.
+// PlanAssets is the canonical art table. main.go seeds S3 from it and AddPlans
+// reads keys out of it, so an upload and an insert cannot disagree about what
+// a plan's images are called.
+//
+// The *Watermark source files are deliberately much larger than the covers:
+// they are stretched across the whole viewport, so an upscale artefact that is
+// invisible on a 248px card is a smear at 1920px.
 var PlanAssets = []PlanAsset{
-	{Slug: "athlete", ImageKey: "athlete.jpg", LocalPath: `assets\athlete.jpg`},
-	{Slug: "manga", ImageKey: "manga.jpg", LocalPath: `assets\manga.jpg`},
-	{Slug: "greek-god", ImageKey: "greek_god.png", LocalPath: `assets\greek.jpg`},
-	// {Slug: "greek-god", ImageKey: "greek_god.png", LocalPath: `assets\Greek-god-2.png`},
-	{Slug: "spartan", ImageKey: "spartan.jpg", LocalPath: `assets\spartanTwo.jpg`},
-	{Slug: "superhero", ImageKey: "superhero.jpg", LocalPath: `assets\superhero.jpg`},
+	{
+		Slug:     "athlete",
+		ImageKey: "athlete.jpg", LocalPath: `assets\athleteThumbnail.png`,
+		WatermarkKey: "athlete_watermark.jpg", WatermarkPath: `assets\athleteWatermark.jpg`,
+	},
+	{
+		Slug:     "manga",
+		ImageKey: "manga.jpg", LocalPath: `assets\mangaThumbnail.png`,
+		WatermarkKey: "manga_watermark.jpg", WatermarkPath: `assets\mangaWatermark.jpg`,
+	},
+	{
+		// Was assets\greek.jpg, which no longer exists on disk. s3.SetUp
+		// returns on the first os.Open failure and main.go bails out before
+		// the HTTP server starts, so a stale path here is a boot failure for
+		// the whole API, not a missing picture.
+		Slug:     "greek-god",
+		ImageKey: "greek_god.png", LocalPath: `assets\greekThumbnail.png`,
+		WatermarkKey: "greek_god_watermark.jpg", WatermarkPath: `assets\greekWatermark.jpg`,
+	},
+	{
+		Slug:     "spartan",
+		ImageKey: "spartan.jpg", LocalPath: `assets\spartanThumbnail.png`,
+		// AVIF: every browser this app supports decodes it, and it is the one
+		// backdrop small enough to stay under 60KB at full bleed.
+		WatermarkKey: "spartan_watermark.avif", WatermarkPath: `assets\spartanWatermark.avif`,
+	},
+	{
+		Slug:     "superhero",
+		ImageKey: "superhero.jpg", LocalPath: `assets\superheroThumbnail.png`,
+		WatermarkKey: "superhero_watermark.jpg", WatermarkPath: `assets\superheroWatermark.jpg`,
+	},
 }
 
 // UploadMap returns PlanAssets in the shape s3.SetUp expects: object key to
-// local file path.
+// local file path. Covers and watermarks share the map — they are objects in
+// the same bucket and only their keys tell them apart.
 func UploadMap() map[string]string {
-	out := make(map[string]string, len(PlanAssets))
+	out := make(map[string]string, len(PlanAssets)*2)
 	for _, a := range PlanAssets {
 		out[a.ImageKey] = a.LocalPath
+		// Guarded so a plan can ship without a backdrop rather than seeding an
+		// empty key, which S3 would reject.
+		if a.WatermarkKey != "" && a.WatermarkPath != "" {
+			out[a.WatermarkKey] = a.WatermarkPath
+		}
 	}
 	return out
 }
 
-// ImageKeyFor returns the S3 key illustrating slug. Linear scan — PlanAssets
-// is a handful of entries and this runs once per submitted plan.
-func ImageKeyFor(slug string) (string, bool) {
+// AssetFor returns the art illustrating slug. Linear scan — PlanAssets is a
+// handful of entries and this runs once per submitted plan.
+func AssetFor(slug string) (PlanAsset, bool) {
 	for _, a := range PlanAssets {
 		if a.Slug == slug {
-			return a.ImageKey, true
+			return a, true
 		}
 	}
-	return "", false
+	return PlanAsset{}, false
 }
 
 // UnknownSlugError reports a submitted plan whose slug has no cover image in
@@ -86,12 +140,20 @@ func (e UnknownSlugError) Error() string {
 	return fmt.Sprintf("trainingplan: no image asset for slug %q", e.Slug)
 }
 
-// ResolveImageURL fills ImageURL from ImageKey. Call it on the way out to the
-// client, not before writing — the insert only ever stores the key.
-func (p *TrainingPlan) ResolveImageURL(bucket string) {
-	if p.ImageKey == "" {
-		p.ImageURL = ""
-		return
+// ResolveURLs fills ImageURL and WatermarkURL from their keys. Call it on the
+// way out to the client, not before writing — the insert only ever stores the
+// keys.
+//
+// An empty key yields an empty URL rather than a bucket root, so `omitempty`
+// drops the field and the client can tell "no art" from "art at this address".
+func (p *TrainingPlan) ResolveURLs(bucket string) {
+	p.ImageURL = objectURL(bucket, p.ImageKey)
+	p.WatermarkURL = objectURL(bucket, p.WatermarkKey)
+}
+
+func objectURL(bucket, key string) string {
+	if key == "" {
+		return ""
 	}
-	p.ImageURL = fmt.Sprintf("https://%s.s3.amazonaws.com/%s", bucket, url.PathEscape(p.ImageKey))
+	return fmt.Sprintf("https://%s.s3.amazonaws.com/%s", bucket, url.PathEscape(key))
 }

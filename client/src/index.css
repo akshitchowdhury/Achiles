@@ -16,6 +16,11 @@
   --font-sans: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
   /* Headings. Base aliases the body face; serif/condensed plans override it. */
   --font-display: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* The uppercase eyebrows, stat labels and nav tabs — the chrome voice.
+     Separate from --font-display because a plan's headline face is often the
+     wrong thing at 10px: Cormorant is beautiful at 48px and mush at 10px, and
+     Dela Gothic has no weight axis to lean on. Base aliases the body face. */
+  --font-label: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
 
   /* Tracking for the uppercase eyebrow labels. Plans push this much wider
      (superhero's HUD) or tighter. */

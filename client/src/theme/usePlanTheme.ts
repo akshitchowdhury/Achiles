@@ -8,7 +8,7 @@ export const THEME_COLOR: Record<string, string> = {
   'greek-god': '#e9e3d3',
   superhero: '#080d14',
   athlete: '#101114',
-  manga: '#0d0a12',
+  manga: '#0B0B0F',
 }
 
 /**

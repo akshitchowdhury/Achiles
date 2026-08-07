@@ -61,7 +61,13 @@ export function PlanNav({
               // Redundant with the accessible name from the label when labels
               // are visible, but harmless — and essential when they are not.
               aria-label={labels === 'sr-only' ? label : undefined}
-              className={({ isActive }) => clsx('group/nav relative', item({ isActive }))}
+              // font-label here rather than in each shell's `item` skin: the
+              // nav is chrome, and chrome speaks in the plan's label face in
+              // all five layouts. A shell must NOT also set a font utility on
+              // its item — two font-family utilities are the same specificity
+              // in the same layer, so which one wins would come down to the
+              // order Tailwind happened to emit them in.
+              className={({ isActive }) => clsx('group/nav font-label relative', item({ isActive }))}
             >
               {({ isActive }) => (
                 <>

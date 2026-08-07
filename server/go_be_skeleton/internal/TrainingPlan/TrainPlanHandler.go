@@ -50,7 +50,7 @@ func AddPlansHandler(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	}
 
 	for i := range plans {
-		plans[i].ResolveImageURL(s3.Bucket)
+		plans[i].ResolveURLs(s3.Bucket)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -58,7 +58,7 @@ func AddPlansHandler(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(plans)
 }
 
-const plan_details = `id, name, slug, description, image_key`
+const plan_details = `id, name, slug, description, image_key, watermark_key`
 
 func collectPlans(rows pgx.Rows, capHint int) ([]TrainingPlan, error) {
 	defer rows.Close()
@@ -75,7 +75,7 @@ func collectPlans(rows pgx.Rows, capHint int) ([]TrainingPlan, error) {
 }
 
 func scanUser(row pgx.Row, u *TrainingPlan) error {
-	return row.Scan(&u.ID, &u.Name, &u.Slug, &u.Description, &u.ImageKey)
+	return row.Scan(&u.ID, &u.Name, &u.Slug, &u.Description, &u.ImageKey, &u.WatermarkKey)
 }
 
 func GetAllPlansHandler(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
@@ -102,7 +102,7 @@ func GetAllPlansHandler(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request
 		return
 	}
 	for i := range plans {
-		plans[i].ResolveImageURL(s3.Bucket)
+		plans[i].ResolveURLs(s3.Bucket)
 	}
 
 	// An empty result must encode as [] and not null, which is why collectUsers

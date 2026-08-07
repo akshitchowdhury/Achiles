@@ -20,7 +20,8 @@ import type { ShellProps } from './types'
 export function PeristyleShell({ children }: ShellProps) {
   const item = ({ isActive }: { isActive: boolean }) =>
     clsx(
-      'font-display flex items-center gap-1.5 px-3 py-2 text-sm tracking-wide transition-colors',
+      // No font utility: PlanNav sets font-label on every item.
+      'flex items-center gap-1.5 px-3 py-2 text-sm tracking-wide transition-colors',
       isActive ? 'text-ink font-semibold' : 'text-ink-dim hover:text-ink',
     )
 
@@ -45,7 +46,7 @@ export function PeristyleShell({ children }: ShellProps) {
           <span className="border-accent-edge-soft hidden flex-1 border-t sm:block" aria-hidden="true" />
           <div className="flex items-center gap-2">
             <Logo className="text-volt size-5" />
-            <span className="text-ink font-display tracking-label text-sm font-semibold uppercase">
+            <span className="text-ink font-label tracking-label text-sm font-semibold uppercase">
               Achiles
             </span>
           </div>

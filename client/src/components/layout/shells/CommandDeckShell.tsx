@@ -48,11 +48,11 @@ export function CommandDeckShell({ children }: ShellProps) {
         aria-hidden="true"
         className="border-hairline bg-surface-translucent relative flex h-7 items-center justify-between overflow-hidden border-b px-4 text-[10px] backdrop-blur"
       >
-        <span className="text-ink-muted tracking-label flex items-center gap-2 uppercase">
+        <span className="text-ink-muted font-label tracking-label flex items-center gap-2 uppercase">
           <Logo className="text-volt size-3.5" />
           Achiles · SPEC-04
         </span>
-        <span className="text-ink-muted tracking-label flex items-center gap-2 uppercase">
+        <span className="text-ink-muted font-label tracking-label flex items-center gap-2 uppercase">
           <span className="bg-volt plan-pulse size-1.5 rounded-full" />
           {current?.label ?? 'Deck'}
         </span>

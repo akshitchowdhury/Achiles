@@ -36,8 +36,16 @@ export interface UserDetails {
 /**
  * One row of GET /getPlans — matches trainingplan.TrainingPlan.
  *
- * `image_key` is the bare S3 object key; `image_url` is derived server-side from
- * the bucket and is absent when the key is empty, hence optional.
+ * Two pieces of art, and they are not interchangeable. `image_*` is the COVER
+ * — a portrait crop drawn on the picker's cylinder cards at 248px wide.
+ * `watermark_*` is the BACKDROP the app fades in full-bleed behind every
+ * screen, sourced separately because a card-sized cover blown up to viewport
+ * width is a smear.
+ *
+ * The `_key` fields are bare S3 object keys; the `_url` fields are derived
+ * server-side from the bucket and are absent when their key is empty, hence
+ * optional. `watermark_key` is empty on rows written before the column
+ * existed, so treat a missing watermark as normal and fall back to the cover.
  */
 export interface TrainingPlan {
   id: number
@@ -46,6 +54,8 @@ export interface TrainingPlan {
   description: string
   image_key: string
   image_url?: string
+  watermark_key?: string
+  watermark_url?: string
 }
 
 /**

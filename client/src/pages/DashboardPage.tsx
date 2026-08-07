@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, Droplets, Flame, Gauge, Ruler, Sparkles, WeightIcon } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
 import { Card, CardHeader } from '../components/ui/Card'
+import { PageHeader } from '../components/layout/PageHeader'
 import { StatTile } from '../components/ui/StatTile'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { Button } from '../components/ui/Button'
@@ -12,6 +13,7 @@ import { WeightRangeMeter } from '../components/charts/WeightRangeMeter'
 import { apiErrorMessage } from '../api/client'
 import { useCurrentUser } from '../hooks/useUser'
 import { useSession } from '../store/session'
+import { motifFor } from '../theme/planMotif'
 import {
   ACTIVITY_LEVELS,
   GOAL_META,
@@ -22,9 +24,25 @@ import {
 } from '../lib/fitness'
 import { num, decimal } from '../lib/format'
 
+/**
+ * The baseline readout — one page, five templates.
+ *
+ * The structure is fixed (masthead, one hero figure, a five-tile KPI row, four
+ * charts, one nudge) because it is the right structure for the data. What the
+ * plan changes is everything wrapped around it: the words, the icons, the face
+ * the figures are set in, and the ornament on the hero panel. Those come from
+ * motifFor() and from the .plan-* classes in theme/plan-shells.css, so adding a
+ * sixth plan means a row in planMotif.ts and a CSS block — not a fork of this
+ * file.
+ *
+ * The flavour never reaches the data. A Spartan reads "Rest burn" over the same
+ * BMR, in the same kcal, with the same "At complete rest" hint underneath.
+ */
 export function DashboardPage() {
   const { data: user, isPending, isError, error, refetch } = useCurrentUser()
   const storedWeight = useSession((s) => s.weight)
+  const planSlug = useSession((s) => s.planSlug)
+  const { copy, icons } = motifFor(planSlug)
 
   if (isPending) return <LoadingPanel label="Loading your baseline" />
 
@@ -52,31 +70,32 @@ export function DashboardPage() {
   const maintenance = tdee(specs.BMR, moderate.factor)
   const target = macroTarget(maintenance, goal)
 
+  const HeroIcon = icons.hero
+  const CoachIcon = icons.coach
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-ink-muted tracking-label text-xs font-medium uppercase">
-            Your baseline
-          </p>
-          <h1 className="text-ink font-display mt-1 text-3xl font-semibold tracking-tight">
-            {user.name.split(' ')[0]}&rsquo;s readout
-          </h1>
-        </div>
-        <StatusBadge tone={tone} label={specs.Verdict} />
-      </header>
+      <PageHeader
+        eyebrow={copy.eyebrow}
+        title={copy.title(user.name.split(' ')[0])}
+        action={<StatusBadge tone={tone} label={specs.Verdict} />}
+      />
 
-      {/* Hero figure — exactly one per view */}
-      <Card className="hatch">
-        <div className="flex flex-wrap items-end justify-between gap-6">
+      {/* Hero figure — exactly one per view. .plan-hero is what carries the
+          per-plan ornament: a meander lintel, a scroll's rolled edges, HUD
+          brackets, a broadcast wedge, a screentone corner. It also carries the
+          panel's texture, which is why the shared `hatch` utility is NOT on
+          this card — see the note on .plan-hero in plan-shells.css. */}
+      <Card className="plan-hero">
+        <div className="relative flex flex-wrap items-end justify-between gap-6">
           <div>
-            <p className="text-ink-muted text-xs font-medium">
-              Daily maintenance &middot; {moderate.label.toLowerCase()} training
+            <p className="plan-eyebrow text-ink-muted flex items-center gap-2">
+              <HeroIcon className="text-volt size-3.5" aria-hidden="true" />
+              {copy.heroLabel} &middot; {copy.tempo}
             </p>
-            <p className="text-ink font-display mt-1.5 text-5xl font-semibold tracking-tight">
+            <p className="plan-figure text-ink mt-2">
               {num.format(maintenance)}
-              <span className="text-ink-muted ml-2 text-base font-normal">kcal</span>
+              <span className="text-ink-muted font-sans ml-2 text-base font-normal">kcal</span>
             </p>
             <p className="text-ink-dim mt-2 max-w-md text-sm">
               Estimated from a BMR of {num.format(specs.BMR)} kcal at a{' '}
@@ -89,7 +108,7 @@ export function DashboardPage() {
             to="/coach"
             className="bg-raised text-ink border-hairline-strong hover:border-volt/50 hover:text-volt inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs transition-colors"
           >
-            Get my plan
+            {copy.heroCta}
             <ArrowUpRight className="size-3.5" aria-hidden="true" />
           </Link>
         </div>
@@ -97,27 +116,37 @@ export function DashboardPage() {
 
       {/* KPI row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatTile label="BMI" value={decimal(specs.BMI)} icon={Gauge} hint={specs.Verdict} />
         <StatTile
-          label="BMR"
+          label={copy.stats.bmi}
+          value={decimal(specs.BMI)}
+          icon={icons.bmi}
+          hint={specs.Verdict}
+        />
+        <StatTile
+          label={copy.stats.bmr}
           value={num.format(specs.BMR)}
           unit="kcal"
-          icon={Flame}
+          icon={icons.bmr}
           hint="At complete rest"
         />
-        <StatTile label="Height" value={num.format(user.height_cm)} unit="cm" icon={Ruler} />
         <StatTile
-          label="Weight (kg)"
-          value={user.weight}
-          unit={storedWeight ? 'kg' : undefined}
-          icon={WeightIcon}
-          hint={`Weighed on empty stomach in morning`}
+          label={copy.stats.height}
+          value={num.format(user.height_cm)}
+          unit="cm"
+          icon={icons.height}
         />
         <StatTile
-          label="Water Intake (L)"
+          label={copy.stats.weight}
+          value={user.weight}
+          unit={storedWeight ? 'kg' : undefined}
+          icon={icons.weight}
+          hint="Weighed on empty stomach in morning"
+        />
+        <StatTile
+          label={copy.stats.water}
           value={user.specs.WaterIntake}
           unit={storedWeight ? 'L' : undefined}
-          icon={Droplets}
+          icon={icons.water}
           hint={storedWeight ? '35 ml per kg — estimated' : 'Needs your weight'}
         />
       </div>
@@ -125,13 +154,13 @@ export function DashboardPage() {
       {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader title="Where you sit" hint="BMI against the WHO band scale" />
+          <CardHeader title={copy.charts.band} hint="BMI against the WHO band scale" />
           <BmiScale bmi={specs.BMI} tone={tone} />
         </Card>
 
         <Card>
           <CardHeader
-            title="Bodyweight vs target"
+            title={copy.charts.range}
             hint={storedWeight ? 'Healthy range for your height' : undefined}
           />
           {storedWeight ? (
@@ -146,7 +175,7 @@ export function DashboardPage() {
 
         <Card>
           <CardHeader
-            title="Maintenance calories by activity"
+            title={copy.charts.burn}
             hint="Estimated — your BMR scaled by standard activity factors"
           />
           <CalorieByActivityChart bmr={specs.BMR} />
@@ -154,7 +183,7 @@ export function DashboardPage() {
 
         <Card>
           <CardHeader
-            title={`Macro split — ${GOAL_META[goal].label.toLowerCase()}`}
+            title={`${copy.charts.macros} — ${GOAL_META[goal].label.toLowerCase()}`}
             hint={GOAL_META[goal].detail}
           />
           <MacroSplitBar target={target} />
@@ -166,20 +195,18 @@ export function DashboardPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <span className="bg-volt/15 flex size-9 shrink-0 items-center justify-center rounded-xl">
-              <Sparkles className="text-volt size-4" aria-hidden="true" />
+              <CoachIcon className="text-volt size-4" aria-hidden="true" />
             </span>
             <div>
-              <p className="text-ink text-sm font-semibold">Ready for the detail?</p>
-              <p className="text-ink-dim mt-0.5 text-sm">
-                Turn these numbers into a structured week of training and meals.
-              </p>
+              <p className="plan-card-title text-ink">{copy.nudge.title}</p>
+              <p className="text-ink-dim mt-1 text-sm">{copy.nudge.body}</p>
             </div>
           </div>
           <Link
             to="/coach"
             className="bg-volt text-on-accent hover:bg-volt-hi inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-colors"
           >
-            Open AI panel
+            {copy.nudge.cta}
             <ArrowUpRight className="size-4" aria-hidden="true" />
           </Link>
         </div>
