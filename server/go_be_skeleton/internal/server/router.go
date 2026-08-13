@@ -10,6 +10,7 @@ import (
 	ai "github.com/yourusername/goBackendSkeleton/internal/AI"
 	auth "github.com/yourusername/goBackendSkeleton/internal/Auth"
 	docgeneration "github.com/yourusername/goBackendSkeleton/internal/DocGeneration"
+	redisratelim "github.com/yourusername/goBackendSkeleton/internal/RateLimiterService/RedisRateLim"
 	trainingplan "github.com/yourusername/goBackendSkeleton/internal/TrainingPlan"
 	user "github.com/yourusername/goBackendSkeleton/internal/User"
 	"github.com/yourusername/goBackendSkeleton/internal/config"
@@ -29,7 +30,9 @@ func newRouter(pool *pgxpool.Pool, cfg *config.Config, rdb *redis.Client, ctx co
 	mux.HandleFunc("/getUserById", func(w http.ResponseWriter, r *http.Request) { user.GetUserById(db, w, r) })
 	mux.HandleFunc("/getBMI", func(w http.ResponseWriter, r *http.Request) { user.GetBMI_BMR(db, w, r) })
 	mux.HandleFunc("/askGroq", func(w http.ResponseWriter, r *http.Request) { ai.CallGroq(db, w, r, cfg.AI, rdb) })
-	mux.HandleFunc("/rateTest", func(w http.ResponseWriter, r *http.Request) { ai.TestRateLimit(w, r, cfg.RATELIM) })
+	mux.HandleFunc("/rateTest", func(w http.ResponseWriter, r *http.Request) {
+		ai.TestRateLimit(w, r, &redisratelim.TokenBucket{}, cfg.AUTH)
+	})
 
 	// Google OAuth. The client reaches /login, /auth/me, /auth/link and
 	// /auth/logout through the Vite proxy, which strips the /api prefix.

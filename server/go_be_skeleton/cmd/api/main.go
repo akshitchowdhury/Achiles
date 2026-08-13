@@ -77,14 +77,16 @@ func run(logger *slog.Logger) error {
 	}
 	defer pool.Close()
 
-	rdb := redis.NewClient(&redis.Options{
-
-		Addr:     connect.Address(),
-		Password: connect.Password(), // no password set
-		DB:       connect.Database(), // use default DB
-	})
+	// Addr/Password/DB come from config so the REDIS_* env vars are the single
+	// source of truth — connect.Address() and friends read the same .env
+	// through a second godotenv load and log.Fatalf on a missing key.
+	rdb := redis.NewClient(cfg.REDIS.Options())
 
 	defer rdb.Close()
+
+	rdb.Ping(ctx)
+
+	cfg.InitRateLimiter(rdb)
 	// The OAuth identity table is created here rather than by a migration so
 	// a fresh database can serve a Google sign-in on first boot.
 	if err := auth.EnsureSchema(ctx, pool); err != nil {

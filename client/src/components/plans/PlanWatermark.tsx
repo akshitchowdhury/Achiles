@@ -51,7 +51,16 @@ export function PlanWatermark({ plan, slug, intensity = 'ambient' }: PlanWaterma
   const blurPx = dedicated ? (hero ? 0 : 1) : hero ? 2 : 3
 
   return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
+    // -z-10 is load-bearing, not decoration. This root is `fixed`, so it is a
+    // positioned box with z-index:auto — which paints ABOVE non-positioned
+    // block content in the same stacking context. `main` and the cards inside
+    // it are static, so without this the scrim below was drawing its opaque
+    // plane over the bottom of every page instead of under it.
+    //
+    // Negative rather than a low positive: every shell root carries `isolate`,
+    // which pins the negative index inside the shell instead of letting it
+    // drop behind .plan-bg entirely — the same trick the manga ::before uses.
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.div
           // Keyed on the slug so a plan change crossfades rather than snapping
@@ -80,26 +89,37 @@ export function PlanWatermark({ plan, slug, intensity = 'ambient' }: PlanWaterma
               // upscale of a card-sized cover. Dedicated watermark art removes
               // the second job, so `blurPx` above drops to 0–1 and the artwork
               // is actually legible instead of being a coloured haze.
-              filter: `grayscale(${hero ? 0.45 : 0.7}) contrast(1.12) brightness(${hero ? 0.72 : 0.55}) blur(${blurPx}px)`,
+              filter: `grayscale(${hero ? 0.45 : 0.7}) contrast(1.12) brightness(${hero ? 0.72 : 1.55}) blur(${blurPx}px)`,
               // Blur samples transparent pixels past the edges, which would show
               // as a soft vignette; scaling up slightly pushes that out of frame.
               transform: 'scale(1.04)',
               opacity: hero ? 0.3 : 0.13,
               maskImage:
-                'radial-gradient(120% 95% at 78% 18%, rgb(0 0 0 / 1) 0%, rgb(0 0 0 / 0.55) 45%, transparent 78%)',
+                'radial-gradient(120% 95% at 78% 18%, rgb(0 0 0 / 1) 0%, rgb(0 0 0 / 0.55) 145%, transparent 178%)',
+              // Must stay byte-identical to maskImage above. Chrome supports
+              // both properties and takes whichever is declared last, which is
+              // this one — so a stop edited in only one of the pair silently
+              // does nothing.
               WebkitMaskImage:
-                'radial-gradient(120% 95% at 78% 18%, rgb(0 0 0 / 1) 0%, rgb(0 0 0 / 0.55) 45%, transparent 78%)',
+                'radial-gradient(120% 95% at 78% 18%, rgb(0 0 0 / 1) 0%, rgb(0 0 0 / 0.55) 145%, transparent 178%)',
             }}
           />
 
           {/* Sinks the image back under the content. Uses the plan's own plane so
-              it re-tints itself with the theme rather than being a fixed black. */}
+              it re-tints itself with the theme rather than being a fixed black.
+
+              The ambient bottom fade is kept short on purpose. This layer is
+              fixed to the viewport, so a tall `to top` ramp is not a vignette
+              at the end of the page — it is a permanent band across the lower
+              third of every screen, sitting exactly where the last card of a
+              page lands. 3% solid into nothing by 38% reads as depth without
+              swallowing anything below the fold. */}
           <div
             className="absolute inset-0"
             style={{
               background: hero
                 ? 'linear-gradient(to right, var(--color-plane) 0%, rgb(0 0 0 / 0) 65%), linear-gradient(to top, var(--color-plane) 4%, rgb(0 0 0 / 0) 55%)'
-                : 'linear-gradient(to right, var(--color-plane) 12%, rgb(0 0 0 / 0) 72%), linear-gradient(to top, var(--color-plane) 10%, rgb(0 0 0 / 0) 60%)',
+                : 'linear-gradient(to right, var(--color-plane) 8%, rgb(0 0 0 / 0) 60%), linear-gradient(to top, var(--color-plane) 3%, rgb(0 0 0 / 0) 38%)',
             }}
           />
         </motion.div>
