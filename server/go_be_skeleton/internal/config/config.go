@@ -14,18 +14,37 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	ratelimiterservice "github.com/yourusername/goBackendSkeleton/internal/RateLimiterService"
+	"github.com/redis/go-redis/v9"
+	redisratelim "github.com/yourusername/goBackendSkeleton/internal/RateLimiterService/RedisRateLim"
 )
 
 // Config is the root application configuration.
 type Config struct {
-	Env     string
-	HTTP    HTTPConfig
-	DB      DBConfig
-	CORS    CORSConfig
-	AI      AIConfig
-	AUTH    AuthConfig
-	RATELIM *ratelimiterservice.TokenBucket
+	Env       string
+	HTTP      HTTPConfig
+	DB        DBConfig
+	CORS      CORSConfig
+	AI        AIConfig
+	AUTH      AuthConfig
+	REDIS     RedisConfig
+	RateLimit RateLimitConfig           // parsed from env by Load
+	RATELIM   *redisratelim.TokenBucket // nil until InitRateLimiter runs
+}
+
+type RedisConfig struct {
+	Addr     string
+	Password string
+	DB       int
+}
+
+type RateLimitConfig struct {
+	Capacity       int
+	RefillRate     float64
+	RefillInterval time.Duration
+}
+
+func (c RedisConfig) Options() *redis.Options {
+	return &redis.Options{Addr: c.Addr, Password: c.Password, DB: c.DB}
 }
 
 // AuthConfig holds the Google OAuth client credentials plus everything the
@@ -95,13 +114,7 @@ type AIConfig struct {
 	API_KEY string
 }
 
-// type TokenBucket struct {
-// 	capacity   int        // Maximum number of tokens the bucket can hold
-// 	rate       int        // Number of tokens to add per second
-// 	tokens     int        // Current number of tokens in the bucket
-// 	lastRefill time.Time  // Timestamp of the last token refill
-// 	mutex      sync.Mutex // Mutex to protect concurrent access
-// }
+var cl *redis.Client
 
 // Load reads a .env file if present (ignored silently if missing — real
 // deployments provide env vars directly) and builds a Config from the
@@ -151,7 +164,19 @@ func Load() (*Config, error) {
 			SessionTTL:    getEnvDuration("SESSION_TTL", 24*time.Hour),
 			CookieSecure:  getEnvBool("SESSION_COOKIE_SECURE", false)},
 
-		RATELIM: ratelimiterservice.NewTokenBucket(7, 1),
+		REDIS: RedisConfig{
+			// ADDRESS/PASSWORD/DATABASE are the names already in .env, kept as
+			// fallbacks so nothing breaks while the REDIS_* names roll in.
+			Addr:     getEnv("REDIS_ADDR", getEnv("ADDRESS", "localhost:6379")),
+			Password: getEnv("REDIS_PASSWORD", os.Getenv("PASSWORD")),
+			DB:       getEnvInt("REDIS_DB", getEnvInt("DATABASE", 0)),
+		},
+
+		RateLimit: RateLimitConfig{
+			Capacity:       getEnvInt("RATELIMIT_CAPACITY", 10),
+			RefillRate:     getEnvFloat("RATELIMIT_REFILL_RATE", 1),
+			RefillInterval: getEnvDuration("RATELIMIT_REFILL_INTERVAL", time.Second),
+		},
 	}
 
 	if cfg.AUTH.SessionSecret == "" {
@@ -175,6 +200,14 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
+func (c *Config) InitRateLimiter(rdb *redis.Client) {
+	c.RATELIM = redisratelim.NewTokenBucket(redisratelim.TokenBucketConfig{
+		Capacity:       c.RateLimit.Capacity,
+		RefillRate:     c.RateLimit.RefillRate,
+		RefillInterval: c.RateLimit.RefillInterval,
+		Client:         rdb,
+	})
+}
 func (c *Config) validate() error {
 	if c.DB.Name == "" {
 		return fmt.Errorf("config: DB_NAME must not be empty")
@@ -217,6 +250,18 @@ func getEnvInt(key string, fallback int) int {
 		return fallback
 	}
 	return n
+}
+
+func getEnvFloat(key string, fallback float64) float64 {
+	v, ok := os.LookupEnv(key)
+	if !ok || v == "" {
+		return fallback
+	}
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return fallback
+	}
+	return f
 }
 
 func getEnvBool(key string, fallback bool) bool {

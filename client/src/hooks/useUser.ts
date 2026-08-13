@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addUser, computeSpecs, getUserById } from '../api/users'
 import { linkAthlete } from '../api/auth'
-import { askGroq } from '../api/ai'
+import { askGroq, rateTest } from '../api/ai'
 import { generatePlanDoc } from '../api/docs'
 import { authKeys, googleIdentity, useAuthSession } from './useAuth'
 import { saveBlob } from '../lib/download'
@@ -123,6 +123,18 @@ export function useResumeSession() {
 export function useCoachPlan() {
   return useMutation({
     mutationFn: (id: number) => askGroq(id),
+  })
+}
+
+/**
+ * Spends one token against /rateTest. Retries stay off deliberately: a 429 is
+ * the answer this button exists to show, and retrying would both hide it and
+ * burn the tokens that make the next press meaningful.
+ */
+export function useRateTest() {
+  return useMutation({
+    mutationFn: () => rateTest(),
+    retry: false,
   })
 }
 

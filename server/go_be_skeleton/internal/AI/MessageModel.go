@@ -6,13 +6,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
+	"net"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
-	ratelimiterservice "github.com/yourusername/goBackendSkeleton/internal/RateLimiterService"
+	auth "github.com/yourusername/goBackendSkeleton/internal/Auth"
+	redisratelim "github.com/yourusername/goBackendSkeleton/internal/RateLimiterService/RedisRateLim"
 	user "github.com/yourusername/goBackendSkeleton/internal/User"
 	"github.com/yourusername/goBackendSkeleton/internal/config"
 	"github.com/yourusername/goBackendSkeleton/internal/db/connect"
@@ -153,27 +156,61 @@ WHERE u.id = $1`
 	// "Client request": clientRequest})
 }
 
-func TestRateLimit(w http.ResponseWriter, r *http.Request, cfgApi *ratelimiterservice.TokenBucket) {
+// rateLimitKey names the bucket a request spends from. One key is one
+// independent budget, so this function is what decides *who* gets throttled.
+//
+// A signed-in caller is keyed by account: that survives an IP change and
+// cannot be dodged by reconnecting. Everyone else falls back to source IP.
+// The route name is part of the key so an expensive endpoint's budget stays
+// separate from the rest of the API.
+func rateLimitKey(r *http.Request, route string, authCfg config.AuthConfig) string {
+	if s, err := auth.SessionFrom(r, authCfg); err == nil {
+		if s.UserID != 0 {
+			return fmt.Sprintf("ratelimit:%s:user:%d", route, s.UserID)
+		}
+		// Signed in with Google but not yet linked to an athlete row —
+		// provider+subject is still a stable identity.
+		return fmt.Sprintf("ratelimit:%s:sub:%s:%s", route, s.Provider, s.Subject)
+	}
 
+	// RemoteAddr is "host:port" and the port is different on every TCP
+	// connection. Keying on it unsplit would hand each request a brand new
+	// bucket, which reads as working code that never limits anything.
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	return fmt.Sprintf("ratelimit:%s:ip:%s", route, host)
+}
+
+func TestRateLimit(w http.ResponseWriter, r *http.Request, tb *redisratelim.TokenBucket, authCfg config.AuthConfig) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "wrong api call", http.StatusBadRequest)
 		return
 	}
 
-	success := cfgApi.TakeWithTimeoutMod(1, 1)
+	allowed, remaining, err := tb.Allow(r.Context(), rateLimitKey(r, "rateTest", authCfg))
+	if err != nil {
+		// Fail open: a Redis outage degrades the limiter rather than the API.
+		// Flip this to a 503 for any route where unmetered access is worse
+		// than downtime — /askGroq spends real money, so it likely should.
+		slog.Error("ratelimit: redis unavailable, allowing request", "error", err)
+		allowed, remaining = true, 0
+	}
 
-	if !success {
-		fmt.Println(cfgApi.GetRemainingTokens())
-		http.Error(w, "Exceede req limit", http.StatusTooManyRequests)
+	w.Header().Set("X-RateLimit-Limit", strconv.Itoa(tb.Capacity()))
+	w.Header().Set("X-RateLimit-Remaining", strconv.FormatFloat(remaining, 'f', 0, 64))
+
+	if !allowed {
+		w.Header().Set("Retry-After", strconv.Itoa(int(tb.RetryAfter().Seconds())))
+		http.Error(w, "rate limit exceeded, retry later", http.StatusTooManyRequests)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]any{"message": "Responded succesfully",
-		"Token stats": cfgApi.GetRemainingTokens(),
-		// "Info":        c.API_KEY,
-		// "Payload":     payload,
-		"Response": "called succesfully",
+	json.NewEncoder(w).Encode(map[string]any{
+		"message":   "Responded succesfully",
+		"remaining": remaining,
+		"Response":  "called succesfully",
 	})
-
 }
