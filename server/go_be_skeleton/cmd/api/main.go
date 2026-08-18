@@ -5,6 +5,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -12,6 +14,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	pb "github.com/yourusername/goBackendSkeleton"
 	auth "github.com/yourusername/goBackendSkeleton/internal/Auth"
 	trainingplan "github.com/yourusername/goBackendSkeleton/internal/TrainingPlan"
 	"github.com/yourusername/goBackendSkeleton/internal/config"
@@ -19,9 +22,35 @@ import (
 	"github.com/yourusername/goBackendSkeleton/internal/db/connect"
 	"github.com/yourusername/goBackendSkeleton/internal/db/s3"
 	"github.com/yourusername/goBackendSkeleton/internal/server"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
+
+	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("Failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewTextServiceClient(conn)
+
+	// Context timeout for the request
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	// Make the API call
+	req := &pb.TextRequest{Text: "hello from go client"}
+	fmt.Printf("[Go Client] Sending: '%s'\n", req.Text)
+
+	res, err := client.ProcessText(ctx, req)
+	if err != nil {
+		log.Fatalf("Error calling ProcessText: %v", err)
+	}
+
+	fmt.Printf("[Go Client] Received result: '%s'\n", res.GetResult())
+
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
@@ -34,7 +63,7 @@ func main() {
 	// "context deadline exceeded". SetUp skips objects already in the bucket,
 	// so a warm restart returns in well under a second and never comes near
 	// this ceiling.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	// The upload list lives beside the plan catalogue so the objects seeded
