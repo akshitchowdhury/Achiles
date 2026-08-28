@@ -62,7 +62,7 @@ func CallGroq(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request, c config
 		return
 	}
 
-	query := `SELECT u.id, u.name, u.age, u.weight, u.gender, u.height_cm,
+	query := `SELECT u.id, u.name, u.age, u.weight, u.gender, u.height_cm, u.training_plan_id,
     s.bmi_value, s.bmr_value, s.verdict
 FROM userinfo u
 JOIN user_specs s ON u.id = s.user_id
@@ -77,18 +77,28 @@ WHERE u.id = $1`
 		&u.Weight,
 		&u.Gender,
 		&u.Height_cm,
+		&u.TrainingPlanId,
 		&specs.U_Bmi.Bmi_value,
 		&specs.U_Bmr.Bmr_value,
 		&specs.Verdict,
 	)
 
+	TrainingPlans := make(map[int]string)
+
+	TrainingPlans[1] = "Spartan"
+	TrainingPlans[2] = "Greek God"
+	TrainingPlans[3] = "Superhero"
+	TrainingPlans[4] = "Athlete"
+	TrainingPlans[5] = "Manga"
+
 	clientRequest := fmt.Sprintf(
-		" Format the response as Markdown using ## for section headings and - for bullets. My request is Help me improve my physique and give me a structured nutrition and workout plan based on my personal data: "+
-			"Age: %d, Weight: %.2f kg, Gender: %s, Height: %.2f cm, BMI: %.2f, BMR: %.2f, Verdict: %s",
+		" Format the response as Markdown using ## for section headings and - for bullets.Help me improve my physique and give me a structured nutrition and workout plan based on my personal data and on most importantly on my Subscribed Training plan: "+
+			"Age: %d, Weight: %.2f kg, Gender: %s, Height: %.2f cm, Training_Plan: %v Plan, BMI: %.2f, BMR: %.2f, Verdict: %s",
 		u.Age,
 		u.Weight,
 		u.Gender,
 		u.Height_cm,
+		TrainingPlans[u.TrainingPlanId],
 		specs.U_Bmi.Bmi_value,
 		specs.U_Bmr.Bmr_value,
 		specs.Verdict,
@@ -213,4 +223,80 @@ func TestRateLimit(w http.ResponseWriter, r *http.Request, tb *redisratelim.Toke
 		"remaining": remaining,
 		"Response":  "called succesfully",
 	})
+}
+
+func GuideUser(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request, c config.AIConfig, rdb *redis.Client) {
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "wrong api call", http.StatusBadRequest)
+		return
+	}
+
+	idStr := r.URL.Query().Get("id")
+
+	id, err := strconv.Atoi(idStr)
+
+	// if err:= json.NewDecoder(r.Body).Decode(&clientRequest); err!=nil{
+	// 	http.Error(w, "Could not parse in query of user", http.StatusInternalServerError)
+	// }
+
+	if err != nil {
+		fmt.Println("Id issue", err, id)
+		http.Error(w, "Invalid id", http.StatusBadRequest)
+		return
+	}
+
+	query := `SELECT u.id, u.name, u.age, u.weight, u.gender, u.height_cm, u.training_plan_id,
+    s.bmi_value, s.bmr_value, s.verdict
+FROM userinfo u
+JOIN user_specs s ON u.id = s.user_id
+WHERE u.id = $1`
+
+	var u user.User
+	var specs user.Specs
+	err = db.QueryRow(r.Context(), query, id).Scan(
+		&u.Id,
+		&u.Name,
+		&u.Age,
+		&u.Weight,
+		&u.Gender,
+		&u.Height_cm,
+		&u.TrainingPlanId,
+		&specs.U_Bmi.Bmi_value,
+		&specs.U_Bmr.Bmr_value,
+		&specs.Verdict,
+	)
+
+	TrainingPlans := make(map[int]string)
+
+	TrainingPlans[1] = "Spartan"
+	TrainingPlans[2] = "Greek God"
+	TrainingPlans[3] = "Superhero"
+	TrainingPlans[4] = "Athlete"
+	TrainingPlans[5] = "Manga"
+
+	clientRequest := fmt.Sprintf(
+		" Format the response as Markdown using ## for section headings and - for bullets. Which Plan I have registered to? How i should I train and dial in my nutrition according to that plan? Give me a detailed guidance for it: "+
+			"Age: %d, Weight: %.2f kg, Gender: %s, Height: %.2f cm, Training_Plan: %v Plan, BMI: %.2f, BMR: %.2f, Verdict: %s",
+		u.Age,
+		u.Weight,
+		u.Gender,
+		u.Height_cm,
+		TrainingPlans[u.TrainingPlanId],
+		specs.U_Bmi.Bmi_value,
+		specs.U_Bmr.Bmr_value,
+		specs.Verdict,
+	)
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, "Could not scan rows", http.StatusInternalServerError)
+		return
+	}
+
+	// content := "Explain how to build an athletic physique"
+
+	RagRes := RagHelper(w, r, clientRequest)
+
+	json.NewEncoder(w).Encode(RagRes)
+	// "Client request": clientRequest})
 }
