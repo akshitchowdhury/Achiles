@@ -1,0 +1,10 @@
+# Use this workspace to collaborate
+workspace:
+  id: 584b8025-b94c-42ca-bab4-af91d2a6868a
+
+localResources:
+  specs:
+    - ../LLM/aidata.proto
+    - ../LLM/textservice.proto
+    - ../server/go_be_skeleton/textservice.proto
+    - ../server/go_be_skeleton/grpc_template/aidata.proto
