@@ -1,0 +1,27 @@
+# --- Secrets -------------------------------------------------------------
+# Never commit real credentials. Only *.example templates belong in git.
+.env
+.env.*
+!.env.example
+!*.env.example
+*.pem
+*.key
+oauthjson.json
+
+# --- Python --------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# --- Go ------------------------------------------------------------------
+bin/
+*.exe
+*.test
+*.out
+
+# --- Editors -------------------------------------------------------------
+.vscode/
+.idea/

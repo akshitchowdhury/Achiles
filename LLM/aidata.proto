@@ -5,17 +5,17 @@ package textservice;
 option go_package = "./textpb";
 
 // The service definition
-service TextService {
+service AiDatService {
   // Accepts a text string and returns the processed text
-  rpc ProcessText (TextRequest) returns (TextResponse);
+  rpc ProcessText (AiRequest) returns (AiResponse);
 }
 
 // Request payload sent from Go -> Python
-message TextRequest {
-  string text = 1;
+message AiRequest {
+  string data = 1;
 }
 
 // Response payload sent back from Python -> Go
-message TextResponse {
-  string result = 1;
+message AiResponse {
+  string data = 1;
 }

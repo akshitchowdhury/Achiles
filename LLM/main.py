@@ -11,21 +11,32 @@ from langchain_postgres.vectorstores import PGVector  # Standard PGVector integr
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langgraph.graph import MessagesState
 
+import os
+from dotenv import load_dotenv
+# def _set_env(key: str) -> None:
+#     if key not in os.environ:
+#         os.environ[key] = getpass.getpass(f"{key}:")
 
-def _set_env(key: str) -> None:
-    if key not in os.environ:
-        os.environ[key] = getpass.getpass(f"{key}:")
 
+# _set_env("OPENAI_API_KEY")
 
-_set_env("OPENAI_API_KEY")
+load_dotenv()
+
+# Optional: Raise an explicit error if the key is missing
+if not os.getenv("OPENAI_API_KEY"):
+    raise ValueError("OPENAI_API_KEY is not set in environment or .env file.")
+
 
 # 1. Setup Postgres Connection String
 # Format: postgresql+psycopg://username:password@localhost:port/database_name
-DB_USER = "postgres"
-DB_PASS = "devashura"  # Replace with your pgAdmin password
-DB_HOST = "localhost"
-DB_PORT = "5432"
-DB_NAME = "halo_vectordb"  # Database name enabled in pgAdmin
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASS = os.getenv("DB_PASS")
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "halo_vectordb")
+
+if not DB_PASS:
+    raise ValueError("DB_PASS is not set in environment or .env file.")
 
 CONNECTION_STRING = f"postgresql+psycopg://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
@@ -36,6 +47,9 @@ urls = [
     "https://lilianweng.github.io/posts/2024-04-12-diffusion-video/",
 ]
 
+file_paths = [
+    r"trainingDoc\MasterWorkoutPlan.md"
+]
 
 def load_web_page(url: str, bs_kwargs: dict | None = None) -> list[Document]:
     response = requests.get(url, timeout=20)
@@ -71,10 +85,16 @@ def load_wiki_page(
     return [Document(page_content=text, metadata={"source": url})]
 
 
-docs = [load_web_page(url) for url in urls] + [
-    load_wiki_page("John-117"),
-    load_wiki_page("Cortana"),
-]
+# docs = [load_web_page(url) for url in urls] + [
+#     load_wiki_page("John-117"),
+#     load_wiki_page("Cortana"),
+# ]
+# docs_list = [item for sublist in docs for item in sublist]
+
+# Load documents from local files
+docs = [load_text_or_md(file_path) for file_path in file_paths]
+
+# Flatten the list into docs_list (matching your original structure)
 docs_list = [item for sublist in docs for item in sublist]
 
 text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
@@ -141,27 +161,33 @@ def generate_answer(state: MessagesState):
 
 
 # 6. Pipeline Execution
-question = "Who is Cortana in Halo series. Give a very brief intro on her"
+# question = ""
 
-decision_state = {"messages": [{"role": "user", "content": question}]}
-decision = generate_query_or_respond(decision_state)
-ai_message = decision["messages"][-1]
 
-tool_messages = []
-for call in ai_message.tool_calls:
-    result = retriever_tool.invoke(call["args"])
-    tool_messages.append({
-        "role": "tool",
-        "content": result,
-        "tool_call_id": call["id"],
-    })
 
-full_state = {
-    "messages": convert_to_messages([
-        {"role": "user", "content": question},
-        ai_message,
-        *tool_messages,
-    ])
-}
-response = generate_answer(full_state)
-response["messages"][-1].pretty_print()
+# question = "Who is Cortana in Halo series. Give a very brief intro on her"
+
+# decision_state = {"messages": [{"role": "user", "content": question}]}
+
+# decision = generate_query_or_respond(decision_state)
+# ai_message = decision["messages"][-1]
+
+# tool_messages = []
+# for call in ai_message.tool_calls:
+#     result = retriever_tool.invoke(call["args"])
+#     tool_messages.append({
+#         "role": "tool",
+#         "content": result,
+#         "tool_call_id": call["id"],
+#     })
+
+# full_state = {
+#     "messages": convert_to_messages([
+#         {"role": "user", "content": question},
+#         ai_message,
+#         *tool_messages,
+#     ])
+# }
+# response = generate_answer(full_state)
+# aiResp = response["messages"][-1].content
+# response["messages"][-1].pretty_print()
