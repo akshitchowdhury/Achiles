@@ -1,13 +1,16 @@
+import { useEffect, useState } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Compass, Download, RotateCcw, Sparkles } from 'lucide-react'
+import clsx from 'clsx'
+import { CircleCheck, Compass, Download, Gauge, RotateCcw, Sparkles, Timer } from 'lucide-react'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { EmptyState, ErrorPanel } from '../components/ui/Feedback'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { apiErrorMessage } from '../api/client'
-import { useCoachPlan, useCurrentUser, usePlanDoc } from '../hooks/useUser'
+import { RateLimitedError, type RateTestResult } from '../api/ai'
+import { useCoachPlan, useCurrentUser, usePlanDoc, useRateTest } from '../hooks/useUser'
 import { verdictTone } from '../lib/fitness'
 import { num, decimal } from '../lib/format'
 
@@ -16,6 +19,9 @@ export function CoachPage() {
   const plan = useCoachPlan()
   // Whatever markdown is on screen is what gets sent to /docgeneration.
   const doc = usePlanDoc()
+  // Independent of the coach — it spends a token and reports the verdict, so
+  // it needs no profile and never touches the plan on screen.
+  const rateLimit = useRateTest()
 
   // POST /askGroq?id=N — the id is the whole request; the server reads the
   // stored metrics itself. Nothing to ask for until the profile has loaded.
@@ -32,18 +38,35 @@ export function CoachPage() {
         title="Guide me"
         description="Your stored metrics are sent to the coach, which returns a structured nutrition and training plan built around them."
         action={
-          <Button
-            onClick={runGuide}
-            loading={plan.isPending}
-            disabled={!user}
-            size="lg"
-            className="shrink-0"
-          >
-            {!plan.isPending && <Compass className="size-4" aria-hidden="true" />}
-            {plan.isPending ? 'Writing your plan' : plan.data ? 'Regenerate' : 'Guide me'}
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              onClick={() => rateLimit.mutate()}
+              loading={rateLimit.isPending}
+              variant="secondary"
+              size="lg"
+              title="Spend one token against the server's rate limiter"
+            >
+              {!rateLimit.isPending && <Gauge className="size-4" aria-hidden="true" />}
+              {rateLimit.isPending ? 'Testing' : 'Rate test'}
+            </Button>
+            <Button onClick={runGuide} loading={plan.isPending} disabled={!user} size="lg">
+              {!plan.isPending && <Compass className="size-4" aria-hidden="true" />}
+              {plan.isPending ? 'Writing your plan' : plan.data ? 'Regenerate' : 'Guide me'}
+            </Button>
+          </div>
         }
       />
+
+      {/* Keyed on submittedAt so a repeat press remounts the countdown even
+          when the server returns the same wait as last time. */}
+      {(rateLimit.isSuccess || rateLimit.isError) && (
+        <RateTestOutcome
+          key={rateLimit.submittedAt}
+          result={rateLimit.data}
+          error={rateLimit.error}
+          onRetry={() => rateLimit.mutate()}
+        />
+      )}
 
       {/* What gets sent — no hidden inputs. */}
       {user && (
@@ -242,6 +265,101 @@ export function CoachPage() {
 // 5. **Progressive overload:** gradually increase the weight or resistance you're lifting over time to continue making progress.
 
 // Remember, consistency and patience are key. Stick to the plan, and you'll see improvements in your physique over time.`
+
+/**
+ * The outcome of one /rateTest press.
+ *
+ * A 429 is deliberately not an ErrorPanel. The limiter refusing a request is
+ * this button's success case, so painting it red would say the opposite of
+ * what happened — it gets a warning tone and a countdown instead. Genuine
+ * failures (server down, Redis unreachable) still fall through to ErrorPanel.
+ */
+function RateTestOutcome({
+  result,
+  error,
+  onRetry,
+}: {
+  result?: RateTestResult
+  error: unknown
+  onRetry: () => void
+}) {
+  if (error instanceof RateLimitedError) {
+    return (
+      <div
+        role="status"
+        className="border-warning/30 bg-warning/5 flex items-start gap-3 rounded-2xl border p-5"
+      >
+        <Timer className="text-warning mt-0.5 size-5 shrink-0" aria-hidden="true" />
+        <div className="min-w-0">
+          <p className="text-ink text-sm font-semibold">Rate limit reached</p>
+          <p className="text-ink-dim mt-1 text-sm wrap-break-word">
+            {error.message} <RetryCountdown seconds={error.retryAfterSeconds} />
+          </p>
+          <div className="mt-3">
+            <Button size="sm" variant="secondary" onClick={onRetry}>
+              <RotateCcw className="size-3.5" aria-hidden="true" />
+              Try again
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <ErrorPanel
+        title="The rate test could not run"
+        message={apiErrorMessage(error, 'Could not reach the rate limiter')}
+        action={
+          <Button size="sm" variant="secondary" onClick={onRetry}>
+            <RotateCcw className="size-3.5" aria-hidden="true" />
+            Try again
+          </Button>
+        }
+      />
+    )
+  }
+
+  if (!result) return null
+
+  const spent = result.remaining <= 0
+  return (
+    <div
+      role="status"
+      className={clsx(
+        'flex items-start gap-3 rounded-2xl border p-5',
+        spent ? 'border-warning/30 bg-warning/5' : 'border-good/30 bg-good/5',
+      )}
+    >
+      <CircleCheck
+        className={clsx('mt-0.5 size-5 shrink-0', spent ? 'text-warning' : 'text-good')}
+        aria-hidden="true"
+      />
+      <div className="min-w-0">
+        <p className="text-ink text-sm font-semibold">Request allowed</p>
+        <p className="text-ink-dim mt-1 text-sm">
+          {spent
+            ? 'That was the last token in the bucket — the next press is refused until it refills.'
+            : `${result.remaining} ${result.remaining === 1 ? 'token' : 'tokens'} left before the limiter starts refusing.`}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/** Ticks the server's wait down so the message stays true while it sits there. */
+function RetryCountdown({ seconds }: { seconds: number }) {
+  const [left, setLeft] = useState(seconds)
+
+  useEffect(() => {
+    setLeft(seconds)
+    const id = window.setInterval(() => setLeft((n) => Math.max(0, n - 1)), 1000)
+    return () => window.clearInterval(id)
+  }, [seconds])
+
+  return <>{left > 0 ? `Try again in ${left}s.` : 'You can try again now.'}</>
+}
 
 function PlanSkeleton() {
   return (

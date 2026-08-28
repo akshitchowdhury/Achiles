@@ -10,6 +10,7 @@ import (
 	ai "github.com/yourusername/goBackendSkeleton/internal/AI"
 	auth "github.com/yourusername/goBackendSkeleton/internal/Auth"
 	docgeneration "github.com/yourusername/goBackendSkeleton/internal/DocGeneration"
+	redisratelim "github.com/yourusername/goBackendSkeleton/internal/RateLimiterService/RedisRateLim"
 	trainingplan "github.com/yourusername/goBackendSkeleton/internal/TrainingPlan"
 	user "github.com/yourusername/goBackendSkeleton/internal/User"
 	"github.com/yourusername/goBackendSkeleton/internal/config"
