@@ -5,6 +5,8 @@ package main
 
 import (
 	"context"
+	// "fmt"
+	"log"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -12,6 +14,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	// pb "github.com/yourusername/goBackendSkeleton/grpc_template"
 	auth "github.com/yourusername/goBackendSkeleton/internal/Auth"
 	trainingplan "github.com/yourusername/goBackendSkeleton/internal/TrainingPlan"
 	"github.com/yourusername/goBackendSkeleton/internal/config"
@@ -19,9 +22,35 @@ import (
 	"github.com/yourusername/goBackendSkeleton/internal/db/connect"
 	"github.com/yourusername/goBackendSkeleton/internal/db/s3"
 	"github.com/yourusername/goBackendSkeleton/internal/server"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
+
+	// conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// if err != nil {
+	// 	log.Fatalf("Failed to connect: %v", err)
+	// }
+	// defer conn.Close()
+
+	// client := pb.NewAiDatServiceClient(conn)
+
+	// // Context timeout for the request
+	// ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	// defer cancel()
+
+	// // Make the API call
+	// req := &pb.AiRequest{Data: "Who is Cortana in Halo series. Give a very brief intro on her"}
+	// fmt.Printf("[Go Client] Sending: '%s'\n", req.Data)
+
+	// res, err := client.ProcessText(ctx, req)
+	// if err != nil {
+	// 	log.Fatalf("Error calling ProcessText: %v", err)
+	// }
+
+	// fmt.Printf("[Go Client] Received result: '%v'\n", res.GetData())
+
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
@@ -123,6 +152,12 @@ func run(logger *slog.Logger) error {
 		}
 		logger.Info("http server stopped cleanly")
 	}
+
+	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("Failed to connect: %v", err)
+	}
+	defer conn.Close()
 
 	return nil
 }
