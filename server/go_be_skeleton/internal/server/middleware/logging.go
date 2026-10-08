@@ -18,6 +18,14 @@ func (r *statusRecorder) WriteHeader(status int) {
 	r.ResponseWriter.WriteHeader(status)
 }
 
+// Unwrap exposes the real writer to http.ResponseController. Without it,
+// SetWriteDeadline fails with "feature not supported", and /askAchiles can't
+// lift the server-wide 10s WriteTimeout: the coach's answer was computed and
+// logged as a 200, then dropped on the wire.
+func (r *statusRecorder) Unwrap() http.ResponseWriter {
+	return r.ResponseWriter
+}
+
 // Logging returns middleware that logs method, path, status, and duration
 // for every request using the given structured logger.
 func Logging(logger *slog.Logger) func(http.Handler) http.Handler {
