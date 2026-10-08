@@ -9,3 +9,6 @@ openai_api_key = "sk-..."
 # Optional — leave empty for guest-only sign-in.
 google_client_id     = ""
 google_client_secret = ""
+
+# Extra SSH source CIDRs (this machine's current IP is always allowed).
+# ssh_cidrs = ["203.0.113.7/32"]

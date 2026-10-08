@@ -34,10 +34,14 @@ variable "git_ref" {
   default     = "main"
 }
 
-variable "ssh_cidr" {
-  description = "CIDR allowed to SSH. Empty = this machine's current public IP (/32)."
-  type        = string
-  default     = ""
+variable "ssh_cidrs" {
+  description = <<-EOT
+    Extra CIDRs allowed to SSH, on top of this machine's current public IP
+    (always added). List every egress IP of a network that rotates between
+    addresses, or each apply will lock out the others.
+  EOT
+  type        = list(string)
+  default     = []
 }
 
 variable "frontend_url" {

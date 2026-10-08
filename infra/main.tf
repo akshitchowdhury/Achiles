@@ -44,7 +44,7 @@ data "http" "my_ip" {
 }
 
 locals {
-  ssh_cidr  = var.ssh_cidr != "" ? var.ssh_cidr : "${chomp(data.http.my_ip.response_body)}/32"
+  ssh_cidrs = distinct(concat(["${chomp(data.http.my_ip.response_body)}/32"], var.ssh_cidrs))
   subnet_id = sort(data.aws_subnets.default.ids)[0]
   ssm_path  = "/achiles"
 }
@@ -59,7 +59,7 @@ resource "aws_security_group" "achiles" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [local.ssh_cidr]
+    cidr_blocks = local.ssh_cidrs
   }
 
   # Open to the world because Vercel's egress IPs aren't fixed. Postgres,
@@ -121,7 +121,10 @@ locals {
       POSTGRES_PASSWORD = random_password.postgres.result
       SESSION_SECRET    = random_password.session.result
       OPENAI_API_KEY    = var.openai_api_key
-      FRONTEND_URL      = trimsuffix(var.frontend_url, "/")
+      # Origin only. The API matches this against the browser's Origin header
+      # and appends /api/auth/... for the OAuth callback, so a pasted page URL
+      # like https://app.vercel.app/welcome must lose its path.
+      FRONTEND_URL = regex("^https?://[^/?#]+", var.frontend_url)
     },
     # SSM rejects empty values, so optional settings are only stored when set.
     var.google_client_id != "" ? { CLIENTID = var.google_client_id } : {},
