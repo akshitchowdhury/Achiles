@@ -33,6 +33,12 @@ func EnsureSchema(ctx context.Context, db *pgxpool.Pool) error {
 		ALTER TABLE training_plans
 		ADD COLUMN IF NOT EXISTS watermark_key TEXT NOT NULL DEFAULT ''`
 
+	// The dev database has created_at; a database built from the DDL above
+	// didn't, so deploy/seed-plans.sql (dumped from dev) failed to load into it.
+	const addCreatedAt = `
+		ALTER TABLE training_plans
+		ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP`
+
 	// Nutrition/workout templates and the userinfo link are additive to the
 	// plan catalog above, so they're ensured in the same call rather than a
 	// second EnsureSchema that callers would have to remember to also invoke.
@@ -75,7 +81,7 @@ func EnsureSchema(ctx context.Context, db *pgxpool.Pool) error {
 	const userPlanLink = `
 		ALTER TABLE userinfo ADD COLUMN IF NOT EXISTS training_plan_id INTEGER REFERENCES training_plans(id)`
 
-	for _, stmt := range []string{ddl, addWatermarkKey, nutritionTemplates, workoutTemplates, workoutExercises, userPlanLink} {
+	for _, stmt := range []string{ddl, addWatermarkKey, addCreatedAt, nutritionTemplates, workoutTemplates, workoutExercises, userPlanLink} {
 		if _, err := db.Exec(ctx, stmt); err != nil {
 			return fmt.Errorf("trainingplan: ensure schema: %w", err)
 		}

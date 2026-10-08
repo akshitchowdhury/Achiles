@@ -1,0 +1,5 @@
+# Scripts and SQL run inside Linux containers/VMs; CRLF breaks them there.
+*.sh  text eol=lf
+*.sql text eol=lf
+Dockerfile text eol=lf
+docker-compose.yml text eol=lf

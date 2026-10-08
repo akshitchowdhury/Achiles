@@ -1,65 +1,54 @@
 package docgeneration
 
 import (
-	// "log"
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
-	"time"
+	"strings"
 
 	"github.com/gomutex/godocx"
-	"github.com/redis/go-redis/v9"
-	"github.com/yourusername/goBackendSkeleton/internal/db/connect"
 )
 
-// type AiContent struct {
-// 	Content string `json:"content"`
-// }
+// maxPlanBytes caps the request body. A long plan is a few KB; this only
+// exists so a junk upload can't make the server buffer megabytes.
+const maxPlanBytes = 256 << 10
 
-type AiContent struct {
-	Choices []struct {
-		Message struct {
-			Role    string `json:"role"`
-			Content string `json:"content"`
-		} `json:"message"`
-	} `json:"choices"`
-}
-
-func ServeDocxHandler(w http.ResponseWriter, r *http.Request, rdb *redis.Client) {
-
-	if r.Method != http.MethodGet {
-		http.Error(w, "Wrong api call", http.StatusBadRequest)
+// ServeDocxHandler answers POST /docgeneration with the plan the client is
+// showing, converted to a .docx.
+//
+// The body is a bare JSON string — `"## Week 1\n- ..."` — which is what
+// client/src/api/docs.ts sends.
+//
+// This used to be a GET that ignored its body and rebuilt the document from
+// the Groq response cached in Redis by /askGroq. That broke twice over in
+// production: browsers can't send a GET body (a Vite dev-proxy shim papered
+// over it locally), and /askAchiles never writes that cache, so every download
+// after the coach switch failed. Taking the text from the request removes both
+// problems and the document always matches what is on screen.
+func ServeDocxHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Wrong api call", http.StatusMethodNotAllowed)
 		return
 	}
+
+	var content string
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxPlanBytes)).Decode(&content); err != nil {
+		http.Error(w, "Request body must be the plan as a JSON string", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(content) == "" {
+		http.Error(w, "There is no plan to export yet", http.StatusBadRequest)
+		return
+	}
+
 	document, err := godocx.NewDocument()
 	if err != nil {
 		http.Error(w, "Failed to create document", http.StatusInternalServerError)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	raw, err := (connect.GetCache(rdb, ctx))
-
-	if err != nil {
-		http.Error(w, "Failed to fethc cache", http.StatusInternalServerError)
-		return
-	}
-
-	var grResponse AiContent
-
-	if err := json.Unmarshal([]byte(raw), &grResponse); err != nil {
-		http.Error(w, "Cached payload not valid json", http.StatusInternalServerError)
-		return
-	}
-
-	if len(grResponse.Choices) == 0 || grResponse.Choices[0].Message.Content == "" {
-		http.Error(w, "Cached response has no assistant content", http.StatusInternalServerError)
-		return
-	}
-	if err := ConvertMarkdownToDocx(grResponse.Choices[0].Message.Content, document); err != nil {
+	if err := ConvertMarkdownToDocx(content, document); err != nil {
 		http.Error(w, "Failed to process document formatting", http.StatusInternalServerError)
 		return
 	}
@@ -79,17 +68,11 @@ func ServeDocxHandler(w http.ResponseWriter, r *http.Request, rdb *redis.Client)
 		return
 	}
 
-	// 3. Set standard HTTP download headers
 	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 	w.Header().Set("Content-Disposition", `attachment; filename="Achiles.docx"`)
 
-	// 4. Serve the temp file back over HTTP
+	// ServeFile writes the whole response. Nothing may follow it — the JSON
+	// status object that used to be encoded here was appended to the end of
+	// the .docx bytes.
 	http.ServeFile(w, r, tempFile.Name())
-
-	json.NewEncoder(w).Encode(map[string]any{
-		"Status":            "fetched succesfully!",
-		"Cached resp":       raw,
-		"formatted content": grResponse.Choices[0].Message.Content,
-	})
-
 }

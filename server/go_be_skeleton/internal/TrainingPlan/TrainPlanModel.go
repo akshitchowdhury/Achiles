@@ -71,13 +71,13 @@ type PlanAsset struct {
 var PlanAssets = []PlanAsset{
 	{
 		Slug:     "athlete",
-		ImageKey: "athlete.jpg", LocalPath: `assets\athleteThumbnail.png`,
-		WatermarkKey: "athlete_watermark.jpg", WatermarkPath: `assets\athleteWatermark.png`,
+		ImageKey: "athlete.jpg", LocalPath: `assets/athleteThumbnail.png`,
+		WatermarkKey: "athlete_watermark.jpg", WatermarkPath: `assets/athleteWatermark.png`,
 	},
 	{
 		Slug:     "manga",
-		ImageKey: "manga.jpg", LocalPath: `assets\mangaThumbnail.png`,
-		WatermarkKey: "manga_watermark.jpg", WatermarkPath: `assets\mangaWatermark.png`,
+		ImageKey: "manga.jpg", LocalPath: `assets/mangaThumbnail.png`,
+		WatermarkKey: "manga_watermark.jpg", WatermarkPath: `assets/mangaWatermark.png`,
 	},
 	{
 		// Was assets\greek.jpg, which no longer exists on disk. s3.SetUp
@@ -85,20 +85,20 @@ var PlanAssets = []PlanAsset{
 		// the HTTP server starts, so a stale path here is a boot failure for
 		// the whole API, not a missing picture.
 		Slug:     "greek-god",
-		ImageKey: "greek_god.png", LocalPath: `assets\greekThumbnail.png`,
-		WatermarkKey: "greek_god_watermark.jpg", WatermarkPath: `assets\greekWatermark.png`,
+		ImageKey: "greek_god.png", LocalPath: `assets/greekThumbnail.png`,
+		WatermarkKey: "greek_god_watermark.jpg", WatermarkPath: `assets/greekWatermark.png`,
 	},
 	{
 		Slug:     "spartan",
-		ImageKey: "spartan.jpg", LocalPath: `assets\spartanThumbnail.png`,
+		ImageKey: "spartan.jpg", LocalPath: `assets/spartanThumbnail.png`,
 		// AVIF: every browser this app supports decodes it, and it is the one
 		// backdrop small enough to stay under 60KB at full bleed.
-		WatermarkKey: "spartan_watermark.avif", WatermarkPath: `assets\spartanWatermark.avif`,
+		WatermarkKey: "spartan_watermark.avif", WatermarkPath: `assets/spartanWatermark.avif`,
 	},
 	{
 		Slug:     "superhero",
-		ImageKey: "superhero.jpg", LocalPath: `assets\superheroThumbnail.png`,
-		WatermarkKey: "superhero_watermark.jpg", WatermarkPath: `assets\superheroWatermark.jpg`,
+		ImageKey: "superhero.jpg", LocalPath: `assets/superheroThumbnail.png`,
+		WatermarkKey: "superhero_watermark.jpg", WatermarkPath: `assets/superheroWatermark.jpg`,
 	},
 }
 

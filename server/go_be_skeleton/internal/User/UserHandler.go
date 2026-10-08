@@ -84,10 +84,10 @@ func GetBMI_BMR(db *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
+	// Everything the calculation needs was just scanned out of Postgres. This
+	// used to also json.Decode the request body into u, which 400'd on the
+	// empty body every browser GET has — locally a Vite proxy shim injected
+	// `{}` to get past it, and nothing does that in production.
 
 	calBmi := (CalculateBmi(&u))
 

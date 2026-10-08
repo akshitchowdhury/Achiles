@@ -4,17 +4,11 @@ import { api } from './client'
 const FALLBACK_FILENAME = 'achiles-plan.docx'
 
 /**
- * POST /docgeneration — hands the plan text to the server and gets a .docx back.
- *
- * ServeDocxHandler actually insists on GET while reading the text out of the
- * request body, which no browser can do (XHR and fetch both strip bodies from
- * GET). The POST here is turned back into a GET-with-body by the dev-proxy shim
- * in vite.config.ts. Once the handler accepts POST, that shim can go and this
- * call is already correct.
+ * POST /docgeneration — hands the plan text to the server and gets a .docx back,
+ * so the document always matches the plan on screen.
  *
  * The body is a bare JSON string — `"…plan…"` — not a `{ content: … }`
- * envelope, because the handler decodes straight into a string:
- * `json.NewDecoder(r.Body).Decode(&content.Content)`.
+ * envelope, because ServeDocxHandler decodes straight into a string.
  */
 export async function generatePlanDoc(content: string): Promise<{
   blob: Blob

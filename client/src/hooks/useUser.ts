@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addUser, computeSpecs, getUserById } from '../api/users'
 import { linkAthlete } from '../api/auth'
-import { askGroq, rateTest } from '../api/ai'
+import { askAchiles, rateTest } from '../api/ai'
 import { generatePlanDoc } from '../api/docs'
 import { authKeys, googleIdentity, useAuthSession } from './useAuth'
 import { saveBlob } from '../lib/download'
@@ -122,7 +122,7 @@ export function useResumeSession() {
 /** Calls the coach. The server builds the prompt from stored metrics. */
 export function useCoachPlan() {
   return useMutation({
-    mutationFn: (id: number) => askGroq(id),
+    mutationFn: (id: number) => askAchiles(id),
   })
 }
 

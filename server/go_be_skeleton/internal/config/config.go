@@ -29,6 +29,10 @@ type Config struct {
 	REDIS     RedisConfig
 	RateLimit RateLimitConfig           // parsed from env by Load
 	RATELIM   *redisratelim.TokenBucket // nil until InitRateLimiter runs
+	// Coach limits are separate from RateLimit: a burst of 10 at one per
+	// second is fine for CRUD and far too generous for an LLM call.
+	AchilesPerAthlete RateLimitConfig
+	AchilesGlobal     RateLimitConfig
 }
 
 type RedisConfig struct {
@@ -112,6 +116,13 @@ type CORSConfig struct {
 
 type AIConfig struct {
 	API_KEY string
+	// RagAddr is the host:port of the Python RAG gRPC service (LLM/server.py).
+	// localhost in dev; the compose service name ("rag:50051") when deployed.
+	RagAddr string
+	// RagTimeout budgets one retrieval + generation round trip. It also sets
+	// how long /askAchiles holds its response open, so it must stay below
+	// whatever proxy sits in front of the API.
+	RagTimeout time.Duration
 }
 
 var cl *redis.Client
@@ -153,7 +164,10 @@ func Load() (*Config, error) {
 		},
 
 		AI: AIConfig{
-			API_KEY: getEnv("GROQ_KEY", "")},
+			API_KEY:    getEnv("GROQ_KEY", ""),
+			RagAddr:    getEnv("RAG_ADDR", "localhost:50051"),
+			RagTimeout: getEnvDuration("RAG_TIMEOUT", 90*time.Second),
+		},
 
 		AUTH: AuthConfig{
 			ClientID:      getEnv("CLIENTID", ""),
@@ -176,6 +190,19 @@ func Load() (*Config, error) {
 			Capacity:       getEnvInt("RATELIMIT_CAPACITY", 10),
 			RefillRate:     getEnvFloat("RATELIMIT_REFILL_RATE", 1),
 			RefillInterval: getEnvDuration("RATELIMIT_REFILL_INTERVAL", time.Second),
+		},
+
+		// Defaults: an athlete may ask 3 times in a row, then once every 2
+		// minutes; the whole server allows 20 in a row, then 1 a minute.
+		AchilesPerAthlete: RateLimitConfig{
+			Capacity:       getEnvInt("ACHILES_ATHLETE_CAPACITY", 3),
+			RefillRate:     1,
+			RefillInterval: getEnvDuration("ACHILES_ATHLETE_REFILL_INTERVAL", 2*time.Minute),
+		},
+		AchilesGlobal: RateLimitConfig{
+			Capacity:       getEnvInt("ACHILES_GLOBAL_CAPACITY", 20),
+			RefillRate:     1,
+			RefillInterval: getEnvDuration("ACHILES_GLOBAL_REFILL_INTERVAL", time.Minute),
 		},
 	}
 
@@ -201,10 +228,15 @@ func Load() (*Config, error) {
 }
 
 func (c *Config) InitRateLimiter(rdb *redis.Client) {
-	c.RATELIM = redisratelim.NewTokenBucket(redisratelim.TokenBucketConfig{
-		Capacity:       c.RateLimit.Capacity,
-		RefillRate:     c.RateLimit.RefillRate,
-		RefillInterval: c.RateLimit.RefillInterval,
+	c.RATELIM = c.RateLimit.Bucket(rdb)
+}
+
+// Bucket builds a Redis token bucket with these settings.
+func (rl RateLimitConfig) Bucket(rdb *redis.Client) *redisratelim.TokenBucket {
+	return redisratelim.NewTokenBucket(redisratelim.TokenBucketConfig{
+		Capacity:       rl.Capacity,
+		RefillRate:     rl.RefillRate,
+		RefillInterval: rl.RefillInterval,
 		Client:         rdb,
 	})
 }

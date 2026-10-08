@@ -1,0 +1,22 @@
+# Direct dependencies of server.py / main.py, pinned to the versions in the
+# dev venv. grpcio and protobuf must stay at or above the versions the
+# checked-in aidata_pb2*.py were generated with (1.83.0 / 7.35.1) — the
+# generated code refuses to load against anything older.
+grpcio==1.83.0
+protobuf==7.35.1
+langchain==1.3.14
+langchain-core==1.5.6
+langchain-openai==1.5.1
+langchain-postgres==0.0.17
+langchain-text-splitters==1.1.2
+langgraph==1.2.10
+openai==3.2.0
+tiktoken==0.14.0
+psycopg[binary]==3.3.4
+psycopg-pool==3.3.1
+SQLAlchemy==2.0.51
+python-dotenv==1.2.2
+# Only the unused web/wiki loaders in main.py need these, but main.py imports
+# them at the top, so the module won't load without them.
+beautifulsoup4==4.15.0
+requests==2.34.2
