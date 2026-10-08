@@ -49,6 +49,11 @@ variable "openai_api_key" {
   description = "Used by the RAG service. Stored as an SSM SecureString."
   type        = string
   sensitive   = true
+
+  validation {
+    condition     = startswith(var.openai_api_key, "sk-") && length(var.openai_api_key) > 20
+    error_message = "openai_api_key must be a real OpenAI key (sk-...), not the placeholder from terraform.tfvars.example."
+  }
 }
 
 variable "google_client_id" {
