@@ -1,0 +1,7 @@
+# State holds the generated SSH key, DB password and the OpenAI key.
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+*.pem
+crash.log
