@@ -35,7 +35,6 @@ HTTP. The VM needs no domain name and no TLS certificate.
 ```bash
 ssh ec2-user@<elastic-ip>
 git clone <repo-url> achiles && cd achiles
-git checkout feat/deploy-ec2
 bash deploy/ec2-setup.sh        # swap, docker, compose — then log out/in
 cd achiles                       # after logging back in
 cp deploy/.env.example .env && chmod 600 .env && nano .env
