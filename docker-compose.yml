@@ -5,14 +5,28 @@
 # Only the API is published. Postgres, Redis and the RAG service are reachable
 # only on the compose network.
 #
-# Memory limits add up to ~900 MB so the stack fits a 1 GB t2/t3.micro with
-# the 2 GB swap file deploy/ec2-setup.sh creates. See DEPLOY.md.
+# Memory limits add up to ~840 MB. On a 1 GB micro that is shared with
+# another app, that only fits with swap — see DEPLOY.md.
 #
 #   cp deploy/.env.example .env   # then fill it in
 #   docker compose up -d --build
 
+# Fixed project name: containers, the network and the pgdata volume are all
+# prefixed "achiles_", so they can't collide with another app's compose
+# project on the same VM.
+name: achiles
+
+# Per-service log rotation, so the 8 GB root disk can't fill up — without
+# touching /etc/docker/daemon.json, which other apps on the VM share.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
+    logging: *logging
     image: pgvector/pgvector:pg17
     restart: unless-stopped
     environment:
@@ -45,6 +59,7 @@ services:
     mem_limit: 200m
 
   redis:
+    logging: *logging
     image: redis:7.4-alpine
     restart: unless-stopped
     # Holds rate-limit buckets and a response cache, both disposable, so no
@@ -59,6 +74,7 @@ services:
     mem_limit: 64m
 
   rag:
+    logging: *logging
     build: ./LLM
     restart: unless-stopped
     environment:
@@ -76,11 +92,13 @@ services:
     mem_limit: 450m
 
   api:
+    logging: *logging
     build: ./server/go_be_skeleton
     restart: unless-stopped
     ports:
-      # Port 80 on the VM so the Vercel rewrite needs no port in its URL.
-      - "80:8080"
+      # 8080, not 80: this VM is shared with another app whose Caddy owns
+      # 80/443. client/vercel.json targets http://<ip>:8080.
+      - "${API_PUBLISH_PORT:-8080}:8080"
     environment:
       APP_ENV: production
       HTTP_PORT: "8080"

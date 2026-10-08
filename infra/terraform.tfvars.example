@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars (gitignored) and fill in.
+
+# The Vercel URL, no trailing slash. If you haven't deployed the client yet,
+# leave the placeholder and update it later (see DEPLOY.md).
+frontend_url = "https://achiles.vercel.app"
+
+openai_api_key = "sk-..."
+
+# Optional — leave empty for guest-only sign-in.
+google_client_id     = ""
+google_client_secret = ""

@@ -3,11 +3,11 @@
   "rewrites": [
     {
       "source": "/api/auth/oauth/google/callback",
-      "destination": "http://EC2_HOST/api/auth/oauth/google/callback"
+      "destination": "http://EC2_HOST:8080/api/auth/oauth/google/callback"
     },
     {
       "source": "/api/:path*",
-      "destination": "http://EC2_HOST/:path*"
+      "destination": "http://EC2_HOST:8080/:path*"
     },
     {
       "source": "/((?!api/).*)",
