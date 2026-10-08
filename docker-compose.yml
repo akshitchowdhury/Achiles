@@ -1,0 +1,136 @@
+# Achiles backend on one small VM: Postgres (+pgvector), Redis, the Python RAG
+# service and the Go API. The React client is deployed separately (Vercel) and
+# reaches the API through the rewrite in client/vercel.json.
+#
+# Only the API is published. Postgres, Redis and the RAG service are reachable
+# only on the compose network.
+#
+# Memory limits add up to ~900 MB so the stack fits a 1 GB t2/t3.micro with
+# the 2 GB swap file deploy/ec2-setup.sh creates. See DEPLOY.md.
+#
+#   cp deploy/.env.example .env   # then fill it in
+#   docker compose up -d --build
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: achiles
+    # Postgres defaults assume a real server. These keep it to ~100 MB.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=48MB
+      - -c
+      - work_mem=2MB
+      - -c
+      - maintenance_work_mem=16MB
+      - -c
+      - max_connections=30
+      - -c
+      - effective_cache_size=128MB
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Runs once, on an empty volume: creates the vector database the RAG
+      # service uses alongside the app database.
+      - ./deploy/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d achiles"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    mem_limit: 200m
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    # Holds rate-limit buckets and a response cache, both disposable, so no
+    # persistence. noeviction rather than LRU: evicting a bucket would hand
+    # its caller a fresh full budget.
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "32mb", "--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 64m
+
+  rag:
+    build: ./LLM
+    restart: unless-stopped
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?set OPENAI_API_KEY in .env}
+      DB_USER: postgres
+      DB_PASS: ${POSTGRES_PASSWORD}
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: achiles_vectors
+      RAG_PORT: "50051"
+      RAG_MAX_WORKERS: "2"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 450m
+
+  api:
+    build: ./server/go_be_skeleton
+    restart: unless-stopped
+    ports:
+      # Port 80 on the VM so the Vercel rewrite needs no port in its URL.
+      - "80:8080"
+    environment:
+      APP_ENV: production
+      HTTP_PORT: "8080"
+
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: achiles
+      DB_SSLMODE: disable
+      DB_MAX_CONNS: "5"
+      DB_MIN_CONNS: "1"
+
+      REDIS_ADDR: redis:6379
+
+      RAG_ADDR: rag:50051
+      RAG_TIMEOUT: ${RAG_TIMEOUT:-90s}
+
+      # Same-origin via the Vercel rewrite, so CORS never applies to the
+      # browser. Pinned to the frontend anyway rather than left at "*".
+      CORS_ALLOWED_ORIGINS: ${FRONTEND_URL:?set FRONTEND_URL in .env}
+      CORS_ALLOW_CREDENTIALS: "true"
+
+      CLIENTID: ${CLIENTID:-}
+      CLIENTSECRET: ${CLIENTSECRET:-}
+      REDIRECTURI: ${FRONTEND_URL}/api/auth/oauth/google/callback
+      FRONTEND_URL: ${FRONTEND_URL}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      # The browser only ever talks HTTPS to Vercel, which is where the cookie
+      # lives, so it can be Secure even though Vercel→VM is plain HTTP.
+      SESSION_COOKIE_SECURE: "true"
+
+      # Optional: only for seeding plan art into S3 on boot. Prefer attaching
+      # an IAM role to the instance and leaving these unset.
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: us-east-1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rag:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    mem_limit: 128m
+
+volumes:
+  pgdata:

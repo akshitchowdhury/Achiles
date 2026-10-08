@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
-import Markdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import clsx from 'clsx'
 import { CircleCheck, Compass, Download, Gauge, RotateCcw, Sparkles, Timer } from 'lucide-react'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { EmptyState, ErrorPanel } from '../components/ui/Feedback'
+import { PlanText } from '../components/ui/PlanText'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { apiErrorMessage } from '../api/client'
 import { RateLimitedError, type RateTestResult } from '../api/ai'
@@ -23,7 +22,7 @@ export function CoachPage() {
   // it needs no profile and never touches the plan on screen.
   const rateLimit = useRateTest()
 
-  // POST /askGroq?id=N — the id is the whole request; the server reads the
+  // POST /askAchiles?id=N — the id is the whole request; the server reads the
   // stored metrics itself. Nothing to ask for until the profile has loaded.
   const runGuide = () => {
     if (!user) return
@@ -134,11 +133,11 @@ export function CoachPage() {
             </p>
           )}
 
-          {/* Markdown only; raw HTML stays disabled so model output can't
-              inject markup into the page. */}
-          <div className="prose-plan">
-            <Markdown remarkPlugins={[remarkGfm]}>{plan.data}</Markdown>
-          </div>
+          {/* Read as prose, not as Markdown: the answer's `##` and `-`
+              markers are parsed into headings and lists and then dropped, so
+              no syntax reaches the page — and no model output is treated as
+              markup. */}
+          <PlanText content={plan.data} />
         </Card>
       )}
 

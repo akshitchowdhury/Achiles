@@ -22,7 +22,9 @@ export function apiErrorMessage(err: unknown, fallback = 'Something went wrong')
       return String((data as { message: unknown }).message)
     }
     if (err.code === 'ERR_NETWORK') {
-      return 'Cannot reach the Achiles server. Is it running on port 8080?'
+      return import.meta.env.DEV
+        ? 'Cannot reach the Achiles server. Is it running on port 8080?'
+        : 'Cannot reach the Achiles server. Please try again in a moment.'
     }
     return err.message || fallback
   }

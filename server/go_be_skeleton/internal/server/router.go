@@ -10,7 +10,6 @@ import (
 	ai "github.com/yourusername/goBackendSkeleton/internal/AI"
 	auth "github.com/yourusername/goBackendSkeleton/internal/Auth"
 	docgeneration "github.com/yourusername/goBackendSkeleton/internal/DocGeneration"
-	redisratelim "github.com/yourusername/goBackendSkeleton/internal/RateLimiterService/RedisRateLim"
 	trainingplan "github.com/yourusername/goBackendSkeleton/internal/TrainingPlan"
 	user "github.com/yourusername/goBackendSkeleton/internal/User"
 	"github.com/yourusername/goBackendSkeleton/internal/config"
@@ -30,8 +29,17 @@ func newRouter(pool *pgxpool.Pool, cfg *config.Config, rdb *redis.Client, ctx co
 	mux.HandleFunc("/getUserById", func(w http.ResponseWriter, r *http.Request) { user.GetUserById(db, w, r) })
 	mux.HandleFunc("/getBMI", func(w http.ResponseWriter, r *http.Request) { user.GetBMI_BMR(db, w, r) })
 	mux.HandleFunc("/askGroq", func(w http.ResponseWriter, r *http.Request) { ai.CallGroq(db, w, r, cfg.AI, rdb) })
+	// The coach the client actually calls. Same request shape as /askGroq
+	// (?id=N, empty body) but answered by the RAG service over gRPC.
+	achilesLimits := ai.AchilesLimits{
+		PerAthlete: cfg.AchilesPerAthlete.Bucket(rdb),
+		Global:     cfg.AchilesGlobal.Bucket(rdb),
+	}
+	mux.HandleFunc("/askAchiles", func(w http.ResponseWriter, r *http.Request) { ai.GuideUser(db, w, r, cfg.AI, achilesLimits) })
+	// cfg.RATELIM, not a zero TokenBucket: the zero value has no Redis client,
+	// so every call errored and the handler failed open — it never limited.
 	mux.HandleFunc("/rateTest", func(w http.ResponseWriter, r *http.Request) {
-		ai.TestRateLimit(w, r, &redisratelim.TokenBucket{}, cfg.AUTH)
+		ai.TestRateLimit(w, r, cfg.RATELIM, cfg.AUTH)
 	})
 
 	// Google OAuth. The client reaches /login, /auth/me, /auth/link and
@@ -46,7 +54,7 @@ func newRouter(pool *pgxpool.Pool, cfg *config.Config, rdb *redis.Client, ctx co
 	mux.HandleFunc("/auth/me", func(w http.ResponseWriter, r *http.Request) { auth.HandleMe(db, w, r, cfg.AUTH) })
 	mux.HandleFunc("/auth/link", func(w http.ResponseWriter, r *http.Request) { auth.HandleLink(db, w, r, cfg.AUTH) })
 	mux.HandleFunc("/auth/logout", func(w http.ResponseWriter, r *http.Request) { auth.HandleLogout(w, r, cfg.AUTH) })
-	mux.HandleFunc("/docgeneration", func(w http.ResponseWriter, r *http.Request) { docgeneration.ServeDocxHandler(w, r, rdb) })
+	mux.HandleFunc("/docgeneration", func(w http.ResponseWriter, r *http.Request) { docgeneration.ServeDocxHandler(w, r) })
 	mux.HandleFunc("/addPlans", func(w http.ResponseWriter, r *http.Request) { trainingplan.AddPlansHandler(db, w, r) })
 	mux.HandleFunc("/getPlans", func(w http.ResponseWriter, r *http.Request) { trainingplan.GetAllPlansHandler(db, w, r) })
 	mux.HandleFunc("/selectPlan", func(w http.ResponseWriter, r *http.Request) { trainingplan.SelectTrainingPlanHandler(db, w, r) })

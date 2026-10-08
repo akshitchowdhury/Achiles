@@ -143,9 +143,3 @@ export interface GoogleIdentity {
 }
 
 export type AuthSession = { authenticated: false } | GoogleIdentity
-
-/** Shape of the Groq chat completion nested inside askGroq's `Ai_Response`. */
-export interface GroqCompletion {
-  choices?: Array<{ message?: { content?: string } }>
-  error?: { message?: string }
-}

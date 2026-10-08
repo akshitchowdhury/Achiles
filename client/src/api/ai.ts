@@ -1,37 +1,42 @@
 import axios from 'axios'
 import { api, apiErrorMessage } from './client'
-import type { GroqCompletion } from '../types'
 
-interface AskGroqEnvelope {
+interface AskAchilesEnvelope {
   message: string
-  /** The upstream Groq response, forwarded as an unparsed JSON string. */
-  Ai_Response: string
+  /** The answer the RAG service generated — already plain text. */
+  Achiles_Response: string
 }
 
 /**
- * POST /askGroq?id=N — the server builds the prompt from the user's stored
- * metrics, so there's no body to send.
- *
- * It forwards Groq's raw response body as a *string* inside `Ai_Response`,
- * so we parse it here and dig out the assistant message.
+ * Retrieval plus generation on the Python side runs well past the client's
+ * 30s default, and the Go handler gives the gRPC call 120s. Aborting sooner
+ * than the server does would report a failure for a request still being
+ * answered, so this waits out the server's own budget.
  */
-export async function askGroq(id: number): Promise<string> {
-  const { data } = await api.post<AskGroqEnvelope>('/askGroq', null, { params: { id } })
+const ACHILES_TIMEOUT_MS = 125_000
 
-  let parsed: GroqCompletion
-  try {
-    parsed = JSON.parse(data.Ai_Response) as GroqCompletion
-  } catch {
-    // Not JSON — surface whatever the server passed through rather than crashing.
-    throw new Error(data.Ai_Response?.slice(0, 300) || 'Unreadable response from the coach')
-  }
+/**
+ * POST /askAchiles?id=N — the server builds the prompt from the user's stored
+ * metrics and selected plan, so there's no body to send.
+ *
+ * Unlike the /askGroq endpoint this replaced, nothing here is a provider
+ * passthrough: the Go handler talks to the RAG service and hands back the
+ * generated text directly, so there is no completion envelope to unwrap.
+ *
+ * The text still arrives carrying Markdown markers, because that is how the
+ * prompt asks for structure. Stripping them is the renderer's job — see
+ * `lib/planText`.
+ */
+export async function askAchiles(id: number): Promise<string> {
+  const { data } = await api.post<AskAchilesEnvelope>('/askAchiles', null, {
+    params: { id },
+    timeout: ACHILES_TIMEOUT_MS,
+  })
 
-  if (parsed.error?.message) throw new Error(parsed.error.message)
+  const answer = data.Achiles_Response?.trim()
+  if (!answer) throw new Error('The coach returned an empty plan. Try again.')
 
-  const content = parsed.choices?.[0]?.message?.content
-  if (!content) throw new Error('The coach returned an empty plan. Try again.')
-
-  return content
+  return answer
 }
 
 /**

@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	// "fmt"
-	"log"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -17,13 +16,11 @@ import (
 	// pb "github.com/yourusername/goBackendSkeleton/grpc_template"
 	auth "github.com/yourusername/goBackendSkeleton/internal/Auth"
 	trainingplan "github.com/yourusername/goBackendSkeleton/internal/TrainingPlan"
+	user "github.com/yourusername/goBackendSkeleton/internal/User"
 	"github.com/yourusername/goBackendSkeleton/internal/config"
 	"github.com/yourusername/goBackendSkeleton/internal/db"
-	"github.com/yourusername/goBackendSkeleton/internal/db/connect"
 	"github.com/yourusername/goBackendSkeleton/internal/db/s3"
 	"github.com/yourusername/goBackendSkeleton/internal/server"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -53,8 +50,6 @@ func main() {
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
-
-	connect.RunRedis()
 
 	// Sized for the WORK, not for a round trip. This pushes the whole art set
 	// on a cold bucket — currently ~10MB across ten objects — and the previous
@@ -113,9 +108,21 @@ func run(logger *slog.Logger) error {
 
 	defer rdb.Close()
 
-	rdb.Ping(ctx)
+	// A dead Redis is logged, not fatal: the rate limiter fails open and only
+	// the response cache is lost. This replaces connect.RunRedis, which read
+	// its own .env with godotenv and log.Fatal'd when the file was absent —
+	// which is always, inside a container that gets its config as env vars.
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		logger.Error("redis: ping failed, continuing without it", "addr", cfg.REDIS.Addr, "error", err)
+	}
 
 	cfg.InitRateLimiter(rdb)
+	// userinfo/user_specs first: every other table either references them or
+	// is referenced alongside them, and nothing else creates them.
+	if err := user.EnsureSchema(ctx, pool); err != nil {
+		return err
+	}
+
 	// The OAuth identity table is created here rather than by a migration so
 	// a fresh database can serve a Google sign-in on first boot.
 	if err := auth.EnsureSchema(ctx, pool); err != nil {
@@ -152,12 +159,6 @@ func run(logger *slog.Logger) error {
 		}
 		logger.Info("http server stopped cleanly")
 	}
-
-	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatalf("Failed to connect: %v", err)
-	}
-	defer conn.Close()
 
 	return nil
 }
