@@ -70,7 +70,7 @@ export function DashboardPage() {
   // below shows what every other activity level would mean.
   const moderate = ACTIVITY_LEVELS.find((level) => level.key === 'moderate')!
   const maintenance = tdee(specs.BMR, moderate.factor)
-  const target = macroTarget(maintenance, goal)
+  const target = macroTarget(maintenance, goal, moderate.key, storedWeight)
 
   const HeroIcon = icons.hero
   const CoachIcon = icons.coach

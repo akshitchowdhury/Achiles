@@ -94,15 +94,66 @@ export interface MacroTarget {
 /** Calories per gram, used to turn a calorie share into grams. */
 const KCAL_PER_G = { protein: 4, carbs: 4, fat: 9 } as const
 
-export function macroTarget(maintenance: number, goal: Goal): MacroTarget {
+/**
+ * Baseline protein in grams per kg of bodyweight, by lifestyle. Spans the
+ * commonly cited 1.2 g/kg (sedentary) to 2.0 g/kg (heavy training) range.
+ */
+const PROTEIN_G_PER_KG: Record<ActivityKey, number> = {
+  sedentary: 1.2,
+  light: 1.4,
+  moderate: 1.6,
+  active: 1.8,
+  athlete: 2.0,
+}
+
+/**
+ * Added on top of the lifestyle baseline: a deficit needs more protein to
+ * hold on to muscle, a surplus a little more to build it.
+ */
+const PROTEIN_GOAL_BONUS: Record<Goal, number> = {
+  cut: 0.4,
+  maintain: 0,
+  bulk: 0.2,
+}
+
+/** Upper bound on the combined g/kg figure. */
+const PROTEIN_G_PER_KG_MAX = 2.4
+
+export function proteinGramsPerKg(activity: ActivityKey, goal: Goal): number {
+  const perKg = PROTEIN_G_PER_KG[activity] + PROTEIN_GOAL_BONUS[goal]
+  return Math.round(Math.min(perKg, PROTEIN_G_PER_KG_MAX) * 10) / 10
+}
+
+/**
+ * Daily calories and macros. With a bodyweight, protein is set in g/kg from
+ * lifestyle and goal, fat takes a fixed share of calories and carbs fill the
+ * rest. Without one, it falls back to fixed calorie ratios per goal.
+ */
+export function macroTarget(
+  maintenance: number,
+  goal: Goal,
+  activity: ActivityKey,
+  weightKg: number | null,
+): MacroTarget {
   const calories = Math.round(maintenance * (1 + GOAL_META[goal].delta))
   const ratio = MACRO_RATIOS[goal]
-  return {
-    calories,
-    protein: Math.round((calories * ratio.protein) / KCAL_PER_G.protein),
-    carbs: Math.round((calories * ratio.carbs) / KCAL_PER_G.carbs),
-    fat: Math.round((calories * ratio.fat) / KCAL_PER_G.fat),
+
+  const fat = Math.round((calories * ratio.fat) / KCAL_PER_G.fat)
+
+  if (!weightKg) {
+    return {
+      calories,
+      protein: Math.round((calories * ratio.protein) / KCAL_PER_G.protein),
+      carbs: Math.round((calories * ratio.carbs) / KCAL_PER_G.carbs),
+      fat,
+    }
   }
+
+  const protein = Math.round(weightKg * proteinGramsPerKg(activity, goal))
+  const remaining = calories - protein * KCAL_PER_G.protein - fat * KCAL_PER_G.fat
+  const carbs = Math.max(0, Math.round(remaining / KCAL_PER_G.carbs))
+
+  return { calories, protein, carbs, fat }
 }
 
 /** Daily water target — 35ml per kg of bodyweight, in litres. */

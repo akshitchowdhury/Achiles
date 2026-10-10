@@ -14,6 +14,7 @@ import {
   GOAL_META,
   goalForVerdict,
   macroTarget,
+  proteinGramsPerKg,
   tdee,
   waterTargetLitres,
 } from '../lib/fitness'
@@ -47,8 +48,8 @@ export function NutritionPage() {
 
   const target = useMemo(() => {
     if (!user) return null
-    return macroTarget(tdee(user.specs.BMR, factor), effectiveGoal)
-  }, [user, factor, effectiveGoal])
+    return macroTarget(tdee(user.specs.BMR, factor), effectiveGoal, activity, storedWeight)
+  }, [user, factor, effectiveGoal, activity, storedWeight])
 
   if (isPending) return <LoadingPanel label="Loading your numbers" />
   if (isError) return <ErrorPanel message={apiErrorMessage(error)} />
@@ -123,6 +124,7 @@ export function NutritionPage() {
               value={num.format(target.protein)}
               unit="g"
               icon={Utensils}
+              hint={storedWeight ? `${proteinGramsPerKg(activity, effectiveGoal)} g per kg` : 'Share of calories'}
             />
             <StatTile
               label="Water"
@@ -151,6 +153,9 @@ export function NutritionPage() {
           <li className="flex gap-2.5">
             <Utensils className="text-ink-muted mt-0.5 size-4 shrink-0" aria-hidden="true" />
             <span>
+              {storedWeight
+                ? `Protein is ${proteinGramsPerKg(activity, effectiveGoal)} g per kilogram of bodyweight — more the harder you train, and more again in a deficit. Fat takes a fixed share and carbs fill the rest.`
+                : 'Protein is a fixed share of calories until we know your weight.'}{' '}
               Protein and carbs are counted at 4 kcal per gram, fat at 9 — which is why the bar
               splits by calories, not grams.
             </span>
